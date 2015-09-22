@@ -1,8 +1,3 @@
-require 'date'
-require 'set'
-require 'bigdecimal'
-require 'bigdecimal/util'
-
 module ActiveRecord
   module ConnectionAdapters #:nodoc:
     # Abstract representation of an index definition on a table. Instances of
@@ -15,14 +10,20 @@ module ActiveRecord
     # are typically created by methods in TableDefinition, and added to the
     # +columns+ attribute of said TableDefinition object, in order to be used
     # for generating a number of table creation or table changing SQL statements.
-    class ColumnDefinition < Struct.new(:name, :type, :limit, :precision, :scale, :default, :null, :first, :after, :auto_increment, :primary_key, :sql_type) #:nodoc:
+    class ColumnDefinition < Struct.new(:name, :type, :limit, :precision, :scale, :default, :null, :first, :after, :auto_increment, :primary_key, :collation, :sql_type) #:nodoc:
 
       def primary_key?
         primary_key || type.to_sym == :primary_key
       end
     end
 
+    class AddColumnDefinition < Struct.new(:column) # :nodoc:
+    end
+
     class ChangeColumnDefinition < Struct.new(:column, :name) #:nodoc:
+    end
+
+    class PrimaryKeyDefinition < Struct.new(:name) # :nodoc:
     end
 
     class ForeignKeyDefinition < Struct.new(:from_table, :to_table, :options) #:nodoc:
@@ -209,6 +210,7 @@ module ActiveRecord
         @columns_hash = {}
         @indexes = {}
         @foreign_keys = {}
+        @primary_keys = nil
         @native = types
         @temporary = temporary
         @options = options
@@ -216,6 +218,12 @@ module ActiveRecord
         @name = name
       end
 
+      def primary_keys(name = nil) # :nodoc:
+        @primary_keys = PrimaryKeyDefinition.new(name) if name
+        @primary_keys
+      end
+
+      # Returns an array of ColumnDefinition objects for the columns of the table.
       def columns; @columns_hash.values; end
 
       # Returns a ColumnDefinition for the column with name +name+.
@@ -227,7 +235,7 @@ module ActiveRecord
       # The +type+ parameter is normally one of the migrations native types,
       # which is one of the following:
       # <tt>:primary_key</tt>, <tt>:string</tt>, <tt>:text</tt>,
-      # <tt>:integer</tt>, <tt>:float</tt>, <tt>:decimal</tt>,
+      # <tt>:integer</tt>, <tt>:bigint</tt>, <tt>:float</tt>, <tt>:decimal</tt>,
       # <tt>:datetime</tt>, <tt>:time</tt>, <tt>:date</tt>,
       # <tt>:binary</tt>, <tt>:boolean</tt>.
       #
@@ -237,8 +245,8 @@ module ActiveRecord
       #
       # Available options are (none of these exists by default):
       # * <tt>:limit</tt> -
-      #   Requests a maximum column length. This is number of characters for <tt>:string</tt> and
-      #   <tt>:text</tt> columns and number of bytes for <tt>:binary</tt> and <tt>:integer</tt> columns.
+      #   Requests a maximum column length. This is number of characters for a <tt>:string</tt> column
+      #   and number of bytes for <tt>:text</tt>, <tt>:binary</tt> and <tt>:integer</tt> columns.
       # * <tt>:default</tt> -
       #   The column's default value. Use nil for NULL.
       # * <tt>:null</tt> -
@@ -371,6 +379,8 @@ module ActiveRecord
         self
       end
 
+      # remove the column +name+ from the table.
+      #   remove_column(:account_id)
       def remove_column(name)
         @columns_hash.delete name.to_s
       end
@@ -400,17 +410,12 @@ module ActiveRecord
         column(:updated_at, :datetime, options)
       end
 
-      # Adds a reference. Optionally adds a +type+ column, if the
-      # +:polymorphic+ option is provided. +references+ and +belongs_to+
-      # are interchangeable. The reference column will be an +integer+ by default,
-      # the +:type+ option can be used to specify a different type. A foreign
-      # key will be created if the +:foreign_key+ option is passed.
+      # Adds a reference.
       #
       #  t.references(:user)
-      #  t.references(:user, type: "string")
-      #  t.belongs_to(:supplier, polymorphic: true)
+      #  t.belongs_to(:supplier, foreign_key: true)
       #
-      # See SchemaStatements#add_reference
+      # See SchemaStatements#add_reference for details of the options you can use.
       def references(*args, **options)
         args.each do |col|
           ReferenceDefinition.new(col, **options).add_to(self)
@@ -434,6 +439,7 @@ module ActiveRecord
         column.after       = options[:after]
         column.auto_increment = options[:auto_increment]
         column.primary_key = type == :primary_key || options[:primary_key]
+        column.collation   = options[:collation]
         column
       end
 
@@ -476,7 +482,7 @@ module ActiveRecord
       def add_column(name, type, options)
         name = name.to_s
         type = type.to_sym
-        @adds << @td.new_column_definition(name, type, options)
+        @adds << AddColumnDefinition.new(@td.new_column_definition(name, type, options))
       end
     end
 
@@ -598,10 +604,11 @@ module ActiveRecord
       #
       #  t.change_default(:qualification, 'new')
       #  t.change_default(:authorized, 1)
+      #  t.change_default(:status, from: nil, to: "draft")
       #
       # See SchemaStatements#change_column_default
-      def change_default(column_name, default)
-        @base.change_column_default(name, column_name, default)
+      def change_default(column_name, default_or_changes)
+        @base.change_column_default(name, column_name, default_or_changes)
       end
 
       # Removes the column(s) from the table definition.
@@ -643,15 +650,12 @@ module ActiveRecord
         @base.rename_column(name, column_name, new_column_name)
       end
 
-      # Adds a reference. Optionally adds a +type+ column, if
-      # <tt>:polymorphic</tt> option is provided.
+      # Adds a reference.
       #
       #  t.references(:user)
-      #  t.references(:user, type: "string")
-      #  t.belongs_to(:supplier, polymorphic: true)
       #  t.belongs_to(:supplier, foreign_key: true)
       #
-      # See SchemaStatements#add_reference
+      # See SchemaStatements#add_reference for details of the options you can use.
       def references(*args)
         options = args.extract_options!
         args.each do |ref_name|

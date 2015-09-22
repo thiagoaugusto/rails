@@ -1865,15 +1865,15 @@ The methods `to_date`, `to_time`, and `to_datetime` are basically convenience wr
 
 ```ruby
 "2010-07-27".to_date              # => Tue, 27 Jul 2010
-"2010-07-27 23:37:00".to_time     # => Tue Jul 27 23:37:00 UTC 2010
+"2010-07-27 23:37:00".to_time     # => 2010-07-27 23:37:00 +0200
 "2010-07-27 23:37:00".to_datetime # => Tue, 27 Jul 2010 23:37:00 +0000
 ```
 
 `to_time` receives an optional argument `:utc` or `:local`, to indicate which time zone you want the time in:
 
 ```ruby
-"2010-07-27 23:42:00".to_time(:utc)   # => Tue Jul 27 23:42:00 UTC 2010
-"2010-07-27 23:42:00".to_time(:local) # => Tue Jul 27 23:42:00 +0200 2010
+"2010-07-27 23:42:00".to_time(:utc)   # => 2010-07-27 23:42:00 UTC
+"2010-07-27 23:42:00".to_time(:local) # => 2010-07-27 23:42:00 +0200
 ```
 
 Default is `:utc`.
@@ -1935,6 +1935,8 @@ as well as adding or subtracting their results from a Time object. For example:
 # equivalent to Time.current.advance(months: 4, years: 5)
 (4.months + 5.years).from_now
 ```
+
+NOTE: Defined in `active_support/core_ext/numeric/time.rb`
 
 ### Formatting
 
@@ -2193,6 +2195,16 @@ removed:
 
 NOTE: Defined in `active_support/core_ext/enumerable.rb`.
 
+### `pluck`
+
+The method `pluck` returns an array based on the given key:
+
+```ruby
+[{ name: "David" }, { name: "Rafael" }, { name: "Aaron" }].pluck(:name) # => ["David", "Rafael", "Aaron"]
+```
+
+NOTE: Defined in `active_support/core_ext/enumerable.rb`.
+
 Extensions to `Array`
 ---------------------
 
@@ -2201,14 +2213,14 @@ Extensions to `Array`
 Active Support augments the API of arrays to ease certain ways of accessing them. For example, `to` returns the subarray of elements up to the one at the passed index:
 
 ```ruby
-%w(a b c d).to(2) # => %w(a b c)
+%w(a b c d).to(2) # => ["a", "b", "c"]
 [].to(7)          # => []
 ```
 
 Similarly, `from` returns the tail from the element at the passed index to the end. If the index is greater than the length of the array, it returns an empty array.
 
 ```ruby
-%w(a b c d).from(2)  # => %w(c d)
+%w(a b c d).from(2)  # => ["c", "d"]
 %w(a b c d).from(10) # => []
 [].from(0)           # => []
 ```
@@ -2216,7 +2228,7 @@ Similarly, `from` returns the tail from the element at the passed index to the e
 The methods `second`, `third`, `fourth`, and `fifth` return the corresponding element (`first` is built-in). Thanks to social wisdom and positive constructiveness all around, `forty_two` is also available.
 
 ```ruby
-%w(a b c d).third # => c
+%w(a b c d).third # => "c"
 %w(a b c d).fifth # => nil
 ```
 
@@ -2229,7 +2241,7 @@ NOTE: Defined in `active_support/core_ext/array/access.rb`.
 This method is an alias of `Array#unshift`.
 
 ```ruby
-%w(a b c d).prepend('e')  # => %w(e a b c d)
+%w(a b c d).prepend('e')  # => ["e", "a", "b", "c", "d"]
 [].prepend(10)            # => [10]
 ```
 
@@ -2240,8 +2252,8 @@ NOTE: Defined in `active_support/core_ext/array/prepend_and_append.rb`.
 This method is an alias of `Array#<<`.
 
 ```ruby
-%w(a b c d).append('e')  # => %w(a b c d e)
-[].append([1,2])         # => [[1,2]]
+%w(a b c d).append('e')  # => ["a", "b", "c", "d", "e"]
+[].append([1,2])         # => [[1, 2]]
 ```
 
 NOTE: Defined in `active_support/core_ext/array/prepend_and_append.rb`.
@@ -2465,7 +2477,7 @@ NOTE: Defined in `active_support/core_ext/array/wrap.rb`.
 
 ### Duplicating
 
-The method `Array.deep_dup` duplicates itself and all objects inside
+The method `Array#deep_dup` duplicates itself and all objects inside
 recursively with Active Support method `Object#deep_dup`. It works like `Array#map` with sending `deep_dup` method to each object inside.
 
 ```ruby
@@ -2687,7 +2699,7 @@ NOTE: Defined in `active_support/core_ext/hash/deep_merge.rb`.
 
 ### Deep duplicating
 
-The method `Hash.deep_dup` duplicates itself and all keys and values
+The method `Hash#deep_dup` duplicates itself and all keys and values
 inside recursively with Active Support method `Object#deep_dup`. It works like `Enumerator#each_with_object` with sending `deep_dup` method to each pair inside.
 
 ```ruby
@@ -2883,7 +2895,7 @@ The method `transform_values` accepts a block and returns a hash that has applie
 ```
 There's also the bang variant `transform_values!` that applies the block operations to values in the very receiver.
 
-NOTE: Defined in `active_support/core_text/hash/transform_values.rb`.
+NOTE: Defined in `active_support/core_ext/hash/transform_values.rb`.
 
 ### Slicing
 

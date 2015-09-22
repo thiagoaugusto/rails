@@ -60,7 +60,7 @@ module ActionView
           tag_options = {
             "src" => path_to_javascript(source, path_options)
           }.merge!(options)
-          content_tag(:script, "", tag_options)
+          content_tag("script".freeze, "", tag_options)
         }.join("\n").html_safe
       end
 
@@ -207,6 +207,7 @@ module ActionView
       #   # => <img alt="Icon" class="menu_icon" src="/icons/icon.gif" />
       def image_tag(source, options={})
         options = options.symbolize_keys
+        check_for_image_tag_errors(options)
 
         src = options[:src] = path_to_image(source)
 
@@ -236,7 +237,7 @@ module ActionView
       #   image_alt('underscored_file_name.png')
       #   # => Underscored file name
       def image_alt(src)
-        File.basename(src, '.*').sub(/-[[:xdigit:]]{32}\z/, '').tr('-_', ' ').capitalize
+        File.basename(src, '.*'.freeze).sub(/-[[:xdigit:]]{32}\z/, ''.freeze).tr('-_'.freeze, ' '.freeze).capitalize
       end
 
       # Returns an HTML video tag for the +sources+. If +sources+ is a string,
@@ -323,6 +324,12 @@ module ActionView
             size.split('x')
           elsif size =~ %r{\A\d+\z}
             [size, size]
+          end
+        end
+
+        def check_for_image_tag_errors(options)
+          if options[:size] && (options[:height] || options[:width])
+            raise ArgumentError, "Cannot pass a :size option with a :height or :width option"
           end
         end
     end

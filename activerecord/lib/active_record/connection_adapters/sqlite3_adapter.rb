@@ -1,6 +1,6 @@
 require 'active_record/connection_adapters/abstract_adapter'
 require 'active_record/connection_adapters/statement_pool'
-require 'arel/visitors/bind_visitor'
+require 'active_record/connection_adapters/sqlite3/schema_creation'
 
 gem 'sqlite3', '~> 1.3.6'
 require 'sqlite3'
@@ -65,59 +65,23 @@ module ActiveRecord
         boolean:      { name: "boolean" }
       }
 
-      class Version
-        include Comparable
+      class StatementPool < ConnectionAdapters::StatementPool
+        private
 
-        def initialize(version_string)
-          @version = version_string.split('.').map(&:to_i)
-        end
-
-        def <=>(version_string)
-          @version <=> version_string.split('.').map(&:to_i)
+        def dealloc(stmt)
+          stmt[:stmt].close unless stmt[:stmt].closed?
         end
       end
 
-      class StatementPool < ConnectionAdapters::StatementPool
-        def initialize(connection, max)
-          super
-          @cache = Hash.new { |h,pid| h[pid] = {} }
-        end
-
-        def each(&block); cache.each(&block); end
-        def key?(key);    cache.key?(key); end
-        def [](key);      cache[key]; end
-        def length;       cache.length; end
-
-        def []=(sql, key)
-          while @max <= cache.size
-            dealloc(cache.shift.last[:stmt])
-          end
-          cache[sql] = key
-        end
-
-        def clear
-          cache.each_value do |hash|
-            dealloc hash[:stmt]
-          end
-          cache.clear
-        end
-
-        private
-        def cache
-          @cache[$$]
-        end
-
-        def dealloc(stmt)
-          stmt.close unless stmt.closed?
-        end
+      def schema_creation # :nodoc:
+        SQLite3::SchemaCreation.new self
       end
 
       def initialize(connection, logger, connection_options, config)
         super(connection, logger)
 
         @active     = nil
-        @statements = StatementPool.new(@connection,
-                                        self.class.type_cast_config_to_integer(config.fetch(:statement_limit) { 1000 }))
+        @statements = StatementPool.new(self.class.type_cast_config_to_integer(config.fetch(:statement_limit) { 1000 }))
         @config = config
 
         @visitor = Arel::Visitors::SQLite.new self
@@ -360,6 +324,19 @@ module ActiveRecord
         table_name && tables(nil, table_name).any?
       end
 
+      def views # :nodoc:
+        select_values("SELECT name FROM sqlite_master WHERE type = 'view' AND name <> 'sqlite_sequence'", 'SCHEMA')
+      end
+
+      def view_exists?(view_name) # :nodoc:
+        return false unless view_name.present?
+
+        sql = "SELECT name FROM sqlite_master WHERE type = 'view' AND name <> 'sqlite_sequence'"
+        sql << " AND name = #{quote(view_name)}"
+
+        select_values(sql, 'SCHEMA').any?
+      end
+
       # Returns an array of +Column+ objects for the table specified by +table_name+.
       def columns(table_name) #:nodoc:
         table_structure(table_name).map do |field|
@@ -372,9 +349,10 @@ module ActiveRecord
             field["dflt_value"] = $1.gsub('""', '"')
           end
 
+          collation = field['collation']
           sql_type = field['type']
           type_metadata = fetch_type_metadata(sql_type)
-          new_column(field['name'], field['dflt_value'], type_metadata, field['notnull'].to_i == 0)
+          new_column(field['name'], field['dflt_value'], type_metadata, field['notnull'].to_i == 0, nil, collation)
         end
       end
 
@@ -403,13 +381,13 @@ module ActiveRecord
         end
       end
 
-      def primary_key(table_name) #:nodoc:
+      def primary_keys(table_name) # :nodoc:
         pks = table_structure(table_name).select { |f| f['pk'] > 0 }
-        return nil unless pks.count == 1
-        pks[0]['name']
+        pks.sort_by { |f| f['pk'] }.map { |f| f['name'] }
       end
 
-      def remove_index!(table_name, index_name) #:nodoc:
+      def remove_index(table_name, options = {}) #:nodoc:
+        index_name = index_name_for_remove(table_name, options)
         exec_query "DROP INDEX #{quote_column_name(index_name)}"
       end
 
@@ -444,13 +422,15 @@ module ActiveRecord
         end
       end
 
-      def change_column_default(table_name, column_name, default) #:nodoc:
+      def change_column_default(table_name, column_name, default_or_changes) #:nodoc:
+        default = extract_new_default_value(default_or_changes)
+
         alter_table(table_name) do |definition|
           definition[column_name].default = default
         end
       end
 
-      def change_column_null(table_name, column_name, null, default = nil)
+      def change_column_null(table_name, column_name, null, default = nil) #:nodoc:
         unless null || default.nil?
           exec_query("UPDATE #{quote_table_name(table_name)} SET #{quote_column_name(column_name)}=#{quote(default)} WHERE #{quote_column_name(column_name)} IS NULL")
         end
@@ -469,6 +449,7 @@ module ActiveRecord
             self.null    = options[:null] if options.include?(:null)
             self.precision = options[:precision] if options.include?(:precision)
             self.scale   = options[:scale] if options.include?(:scale)
+            self.collation = options[:collation] if options.include?(:collation)
           end
         end
       end
@@ -482,9 +463,9 @@ module ActiveRecord
       protected
 
         def table_structure(table_name)
-          structure = exec_query("PRAGMA table_info(#{quote_table_name(table_name)})", 'SCHEMA').to_hash
+          structure = exec_query("PRAGMA table_info(#{quote_table_name(table_name)})", 'SCHEMA')
           raise(ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'") if structure.empty?
-          structure
+          table_structure_with_collation(table_name, structure)
         end
 
         def alter_table(table_name, options = {}) #:nodoc:
@@ -519,7 +500,7 @@ module ActiveRecord
               @definition.column(column_name, column.type,
                 :limit => column.limit, :default => column.default,
                 :precision => column.precision, :scale => column.scale,
-                :null => column.null)
+                :null => column.null, collation: column.collation)
             end
             yield @definition if block_given?
           end
@@ -579,6 +560,46 @@ module ActiveRecord
             RecordNotUnique.new(message, exception)
           else
             super
+          end
+        end
+
+      private
+        COLLATE_REGEX = /.*\"(\w+)\".*collate\s+\"(\w+)\".*/i.freeze
+
+        def table_structure_with_collation(table_name, basic_structure)
+          collation_hash = {}
+          sql            = "SELECT sql FROM
+                              (SELECT * FROM sqlite_master UNION ALL
+                               SELECT * FROM sqlite_temp_master)
+                            WHERE type='table' and name='#{ table_name }' \;"
+
+          # Result will have following sample string
+          # CREATE TABLE "users" ("id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          #                       "password_digest" varchar COLLATE "NOCASE");
+          result = exec_query(sql, 'SCHEMA').first
+
+          if result
+            # Splitting with left parantheses and picking up last will return all
+            # columns separated with comma(,).
+            columns_string = result["sql"].split('(').last
+
+            columns_string.split(',').each do |column_string|
+              # This regex will match the column name and collation type and will save
+              # the value in $1 and $2 respectively.
+              collation_hash[$1] = $2 if (COLLATE_REGEX =~ column_string)
+            end
+
+            basic_structure.map! do |column|
+              column_name = column['name']
+
+              if collation_hash.has_key? column_name
+                column['collation'] = collation_hash[column_name]
+              end
+
+              column
+            end
+          else
+            basic_structure.to_hash
           end
         end
     end

@@ -40,6 +40,7 @@ module ActionMailer
 
   autoload :Base
   autoload :DeliveryMethods
+  autoload :InlinePreviewInterceptor
   autoload :MailHelper
   autoload :Preview
   autoload :Previews, 'action_mailer/preview'
@@ -47,4 +48,11 @@ module ActionMailer
   autoload :TestHelper
   autoload :MessageDelivery
   autoload :DeliveryJob
+end
+
+autoload :Mime, 'action_dispatch/http/mime_type'
+
+ActiveSupport.on_load(:action_view) do
+  ActionView::Base.default_formats ||= Mime::SET.symbols
+  ActionView::Template::Types.delegate_to Mime
 end

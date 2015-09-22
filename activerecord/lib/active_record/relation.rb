@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 require "arel/collectors/bind"
 
 module ActiveRecord
@@ -9,12 +8,13 @@ module ActiveRecord
                             :extending, :unscope]
 
     SINGLE_VALUE_METHODS = [:limit, :offset, :lock, :readonly, :reordering,
-                            :reverse_order, :distinct, :create_with, :uniq]
+                            :reverse_order, :distinct, :create_with]
     CLAUSE_METHODS = [:where, :having, :from]
     INVALID_METHODS_FOR_DELETE_ALL = [:limit, :distinct, :offset, :group, :having]
 
     VALUE_METHODS = MULTI_VALUE_METHODS + SINGLE_VALUE_METHODS + CLAUSE_METHODS
 
+    include Enumerable
     include FinderMethods, Calculations, SpawnMethods, QueryMethods, Batches, Explain, Delegation
 
     attr_reader :table, :klass, :loaded, :predicate_builder
@@ -275,38 +275,52 @@ module ActiveRecord
 
     # Returns true if there are no records.
     def none?
-      if block_given?
-        to_a.none? { |*block_args| yield(*block_args) }
-      else
-        empty?
-      end
+      return super if block_given?
+      empty?
     end
 
     # Returns true if there are any records.
     def any?
-      if block_given?
-        to_a.any? { |*block_args| yield(*block_args) }
-      else
-        !empty?
-      end
+      return super if block_given?
+      !empty?
     end
 
     # Returns true if there is exactly one record.
     def one?
-      if block_given?
-        to_a.one? { |*block_args| yield(*block_args) }
-      else
-        limit_value ? to_a.one? : size == 1
-      end
+      return super if block_given?
+      limit_value ? to_a.one? : size == 1
     end
 
     # Returns true if there is more than one record.
     def many?
-      if block_given?
-        to_a.many? { |*block_args| yield(*block_args) }
-      else
-        limit_value ? to_a.many? : size > 1
-      end
+      return super if block_given?
+      limit_value ? to_a.many? : size > 1
+    end
+
+    # Returns a cache key that can be used to identify the records fetched by
+    # this query. The cache key is built with a fingerprint of the sql query,
+    # the number of records matched by the query and a timestamp of the last
+    # updated record. When a new record comes to match the query, or any of
+    # the existing records is updated or deleted, the cache key changes.
+    #
+    #   Product.where("name like ?", "%Cosmic Encounter%").cache_key
+    #   => "products/query-1850ab3d302391b85b8693e941286659-1-20150714212553907087000"
+    #
+    # If the collection is loaded, the method will iterate through the records
+    # to generate the timestamp, otherwise it will trigger one SQL query like:
+    #
+    #    SELECT COUNT(*), MAX("products"."updated_at") FROM "products" WHERE (name like '%Cosmic Encounter%')
+    #
+    # You can also pass a custom timestamp column to fetch the timestamp of the
+    # last updated record.
+    #
+    #   Product.where("name like ?", "%Game%").cache_key(:last_reviewed_at)
+    #
+    # You can customize the strategy to generate the key on a per model basis
+    # overriding ActiveRecord::Base#collection_cache_key.
+    def cache_key(timestamp_column = :updated_at)
+      @cache_keys ||= {}
+      @cache_keys[timestamp_column] ||= @klass.collection_cache_key(self, timestamp_column)
     end
 
     # Scope all queries to the current scope.
@@ -403,7 +417,7 @@ module ActiveRecord
       end
     end
 
-    # Destroys the records matching +conditions+ by instantiating each
+    # Destroys the records by instantiating each
     # record and calling its +destroy+ method. Each object's callbacks are
     # executed (including <tt>:dependent</tt> association options). Returns the
     # collection of objects that were destroyed; each will be frozen, to
@@ -416,20 +430,15 @@ module ActiveRecord
     # rows quickly, without concern for their associations or callbacks, use
     # +delete_all+ instead.
     #
-    # ==== Parameters
-    #
-    # * +conditions+ - A string, array, or hash that specifies which records
-    #   to destroy. If omitted, all records are destroyed. See the
-    #   Conditions section in the introduction to ActiveRecord::Base for
-    #   more information.
-    #
     # ==== Examples
     #
-    #   Person.destroy_all("last_login < '2004-04-04'")
-    #   Person.destroy_all(status: "inactive")
     #   Person.where(age: 0..18).destroy_all
     def destroy_all(conditions = nil)
       if conditions
+        ActiveSupport::Deprecation.warn(<<-MESSAGE.squish)
+          Passing conditions to destroy_all is deprecated and will be removed in Rails 5.1.
+          To achieve the same use where(conditions).destroy_all
+        MESSAGE
         where(conditions).destroy_all
       else
         to_a.each(&:destroy).tap { reset }
@@ -463,15 +472,13 @@ module ActiveRecord
       end
     end
 
-    # Deletes the records matching +conditions+ without instantiating the records
+    # Deletes the records without instantiating the records
     # first, and hence not calling the +destroy+ method nor invoking callbacks. This
     # is a single SQL DELETE statement that goes straight to the database, much more
     # efficient than +destroy_all+. Be careful with relations though, in particular
     # <tt>:dependent</tt> rules defined on associations are not honored. Returns the
     # number of rows affected.
     #
-    #   Post.delete_all("person_id = 5 AND (category = 'Something' OR category = 'Else')")
-    #   Post.delete_all(["person_id = ? AND (category = ? OR category = ?)", 5, 'Something', 'Else'])
     #   Post.where(person_id: 5).where(category: ['Something', 'Else']).delete_all
     #
     # Both calls delete the affected posts all at once with a single DELETE statement.
@@ -497,6 +504,10 @@ module ActiveRecord
       end
 
       if conditions
+        ActiveSupport::Deprecation.warn(<<-MESSAGE.squish)
+          Passing conditions to delete_all is deprecated and will be removed in Rails 5.1.
+          To achieve the same use where(conditions).delete_all
+        MESSAGE
         where(conditions).delete_all
       else
         stmt = Arel::DeleteManager.new
@@ -618,6 +629,7 @@ module ActiveRecord
     def uniq_value
       distinct_value
     end
+    deprecate uniq_value: :distinct_value
 
     # Compares two relations for equality.
     def ==(other)
@@ -650,6 +662,13 @@ module ActiveRecord
 
       "#<#{self.class.name} [#{entries.join(', ')}]>"
     end
+
+    protected
+
+      def load_records(records)
+        @records = records
+        @loaded = true
+      end
 
     private
 

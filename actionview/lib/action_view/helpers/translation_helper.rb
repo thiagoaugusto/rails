@@ -60,12 +60,12 @@ module ActionView
         # If the user has explicitly decided to NOT raise errors, pass that option to I18n.
         # Otherwise, tell I18n to raise an exception, which we rescue further in this method.
         # Note: `raise_error` refers to us re-raising the error in this method. I18n is forced to raise by default.
-        if options[:raise] == false || (options.key?(:rescue_format) && options[:rescue_format].nil?)
+        if options[:raise] == false
           raise_error = false
-          options[:raise] = false
+          i18n_raise = false
         else
-          raise_error = options[:raise] || options[:rescue_format] || ActionView::Base.raise_on_missing_translations
-          options[:raise] = true
+          raise_error = options[:raise] || ActionView::Base.raise_on_missing_translations
+          i18n_raise = true
         end
 
         if html_safe_translation_key?(key)
@@ -75,11 +75,11 @@ module ActionView
               html_safe_options[name] = ERB::Util.html_escape(value.to_s)
             end
           end
-          translation = I18n.translate(scope_key_by_partial(key), html_safe_options)
+          translation = I18n.translate(scope_key_by_partial(key), html_safe_options.merge(raise: i18n_raise))
 
           translation.respond_to?(:html_safe) ? translation.html_safe : translation
         else
-          I18n.translate(scope_key_by_partial(key), options)
+          I18n.translate(scope_key_by_partial(key), options.merge(raise: i18n_raise))
         end
       rescue I18n::MissingTranslationData => e
         if remaining_defaults.present?
@@ -88,7 +88,14 @@ module ActionView
           raise e if raise_error
 
           keys = I18n.normalize_keys(e.locale, e.key, e.options[:scope])
-          content_tag('span', keys.last.to_s.titleize, :class => 'translation_missing', :title => "translation missing: #{keys.join('.')}")
+          title = "translation missing: #{keys.join('.')}"
+
+          interpolations = options.except(:default)
+          if interpolations.any?
+            title << ", " << interpolations.map { |k, v| "#{k}: #{ERB::Util.html_escape(v)}" }.join(', ')
+          end
+
+          content_tag('span', keys.last.to_s.titleize, class: 'translation_missing', title: title)
         end
       end
       alias :t :translate

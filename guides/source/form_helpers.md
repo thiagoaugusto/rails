@@ -211,9 +211,8 @@ IMPORTANT: The search, telephone, date, time, color, datetime, datetime-local,
 month, week, URL, email, number and range inputs are HTML5 controls.
 If you require your app to have a consistent experience in older browsers,
 you will need an HTML5 polyfill (provided by CSS and/or JavaScript).
-There is definitely [no shortage of solutions for this](https://github.com/Modernizr/Modernizr/wiki/HTML5-Cross-Browser-Polyfills), although a couple of popular tools at the moment are
-[Modernizr](http://www.modernizr.com/) and [yepnope](http://yepnopejs.com/),
-which provide a simple way to add functionality based on the presence of
+There is definitely [no shortage of solutions for this](https://github.com/Modernizr/Modernizr/wiki/HTML5-Cross-Browser-Polyfills), although a popular tool at the moment is
+[Modernizr](http://www.modernizr.com/), which provides a simple way to add functionality based on the presence of
 detected HTML5 features.
 
 TIP: If you're using password input fields (for any purpose), you might want to configure your application to prevent those parameters from being logged. You can learn about this in the [Security Guide](security.html#logging).
@@ -291,8 +290,8 @@ You can create a similar binding without actually creating `<form>` tags with th
 ```erb
 <%= form_for @person, url: {action: "create"} do |person_form| %>
   <%= person_form.text_field :name %>
-  <%= fields_for @person.contact_detail do |contact_details_form| %>
-    <%= contact_details_form.text_field :phone_number %>
+  <%= fields_for @person.contact_detail do |contact_detail_form| %>
+    <%= contact_detail_form.text_field :phone_number %>
   <% end %>
 <% end %>
 ```
@@ -441,7 +440,7 @@ Whenever Rails sees that the internal value of an option being generated matches
 
 TIP: The second argument to `options_for_select` must be exactly equal to the desired internal value. In particular if the value is the integer `2` you cannot pass `"2"` to `options_for_select` - you must pass `2`. Be aware of values extracted from the `params` hash as they are all strings.
 
-WARNING: when `:include_blank` or `:prompt` are not present, `:include_blank` is forced true if the select attribute `required` is true, display `size` is one and `multiple` is not true.
+WARNING: When `:include_blank` or `:prompt` are not present, `:include_blank` is forced true if the select attribute `required` is true, display `size` is one and `multiple` is not true.
 
 You can add arbitrary attributes to the options using hashes:
 

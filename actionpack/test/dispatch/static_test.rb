@@ -57,6 +57,7 @@ module StaticTests
 
   def test_serves_static_index_file_in_directory
     assert_html "/foo/index.html", get("/foo/index.html")
+    assert_html "/foo/index.html", get("/foo/index")
     assert_html "/foo/index.html", get("/foo/")
     assert_html "/foo/index.html", get("/foo")
   end
@@ -155,7 +156,7 @@ module StaticTests
 
   def test_does_not_modify_path_info
     file_name = "/gzip/application-a71b3024f80aea3181c09774ca17e712.js"
-    env = {'PATH_INFO' => file_name, 'HTTP_ACCEPT_ENCODING' => 'gzip'}
+    env = {'PATH_INFO' => file_name, 'HTTP_ACCEPT_ENCODING' => 'gzip', "REQUEST_METHOD" => 'POST'}
     @app.call(env)
     assert_equal file_name, env['PATH_INFO']
   end
@@ -260,6 +261,19 @@ class StaticTest < ActiveSupport::TestCase
     }
     assert_equal(DummyApp.call(nil), @app.call(env))
   end
+
+  def test_non_default_static_index
+    @app = ActionDispatch::Static.new(DummyApp, @root, "public, max-age=60", index: "other-index")
+    assert_html "/other-index.html", get("/other-index.html")
+    assert_html "/other-index.html", get("/other-index")
+    assert_html "/other-index.html", get("/")
+    assert_html "/other-index.html", get("")
+    assert_html "/foo/other-index.html", get("/foo/other-index.html")
+    assert_html "/foo/other-index.html", get("/foo/other-index")
+    assert_html "/foo/other-index.html", get("/foo/")
+    assert_html "/foo/other-index.html", get("/foo")
+  end
+
 end
 
 class StaticEncodingTest < StaticTest

@@ -7,7 +7,10 @@ end
 module RenderTestCases
   def setup_view(paths)
     @assigns = { :secret => 'in the sauce' }
-    @view = ActionView::Base.new(paths, @assigns)
+    @view = Class.new(ActionView::Base) do
+      def view_cache_dependencies; end
+    end.new(paths, @assigns)
+
     @controller_view = TestController.new.view_context
 
     # Reload and register danish language for testing
@@ -275,6 +278,14 @@ module RenderTestCases
 
   def test_render_partial_with_nil_collection_should_return_nil
     assert_nil @view.render(:partial => "test/customer", :collection => nil)
+  end
+
+  def test_render_partial_without_object_does_not_put_partial_name_to_local_assigns
+    assert_equal 'false', @view.render(partial: 'test/partial_name_in_local_assigns')
+  end
+
+  def test_render_partial_with_nil_object_puts_partial_name_to_local_assigns
+    assert_equal 'true', @view.render(partial: 'test/partial_name_in_local_assigns', object: nil)
   end
 
   def test_render_partial_with_nil_values_in_collection
@@ -608,7 +619,7 @@ class CachedCollectionViewRenderTest < CachedViewRenderTest
 
   test "with custom key" do
     customer = Customer.new("david")
-    key = ActionController::Base.new.fragment_cache_key([customer, 'key'])
+    key = cache_key([customer, 'key'], "test/_customer")
 
     ActionView::PartialRenderer.collection_cache.write(key, 'Hello')
 
@@ -618,7 +629,7 @@ class CachedCollectionViewRenderTest < CachedViewRenderTest
 
   test "automatic caching with inferred cache name" do
     customer = CachedCustomer.new("david")
-    key = ActionController::Base.new.fragment_cache_key(customer)
+    key = cache_key(customer, "test/_cached_customer")
 
     ActionView::PartialRenderer.collection_cache.write(key, 'Cached')
 
@@ -628,11 +639,17 @@ class CachedCollectionViewRenderTest < CachedViewRenderTest
 
   test "automatic caching with as name" do
     customer = CachedCustomer.new("david")
-    key = ActionController::Base.new.fragment_cache_key(customer)
+    key = cache_key(customer, "test/_cached_customer_as")
 
     ActionView::PartialRenderer.collection_cache.write(key, 'Cached')
 
     assert_equal "Cached",
       @view.render(partial: "test/cached_customer_as", collection: [customer], as: :buyer)
   end
+
+  private
+    def cache_key(names, virtual_path)
+      digest = ActionView::Digestor.digest name: virtual_path, finder: @view.lookup_context, dependencies: []
+      @view.fragment_cache_key([ *Array(names), digest ])
+    end
 end

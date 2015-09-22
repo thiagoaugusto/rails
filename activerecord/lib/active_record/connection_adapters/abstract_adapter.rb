@@ -1,13 +1,9 @@
-require 'date'
-require 'bigdecimal'
-require 'bigdecimal/util'
 require 'active_record/type'
 require 'active_support/core_ext/benchmark'
 require 'active_record/connection_adapters/schema_cache'
 require 'active_record/connection_adapters/sql_type_metadata'
 require 'active_record/connection_adapters/abstract/schema_dumper'
 require 'active_record/connection_adapters/abstract/schema_creation'
-require 'monitor'
 require 'arel/collectors/bind'
 require 'arel/collectors/sql_string'
 
@@ -70,7 +66,6 @@ module ActiveRecord
       include DatabaseLimits
       include QueryCache
       include ActiveSupport::Callbacks
-      include MonitorMixin
       include ColumnDumper
 
       SIMPLE_INT = /\A\d+\z/
@@ -112,6 +107,18 @@ module ActiveRecord
         @prepared_statements = false
       end
 
+      class Version
+        include Comparable
+
+        def initialize(version_string)
+          @version = version_string.split('.').map(&:to_i)
+        end
+
+        def <=>(version_string)
+          @version <=> version_string.split('.').map(&:to_i)
+        end
+      end
+
       class BindCollector < Arel::Collectors::Bind
         def compile(bvs, conn)
           casted_binds = conn.prepare_binds_for_database(bvs)
@@ -141,12 +148,20 @@ module ActiveRecord
         SchemaCreation.new self
       end
 
+      # this method must only be called while holding connection pool's mutex
       def lease
-        synchronize do
-          unless in_use?
-            @owner = Thread.current
+        if in_use?
+          msg = 'Cannot lease connection, '
+          if @owner == Thread.current
+            msg << 'it is already leased by the current thread.'
+          else
+            msg << "it is already in use by a different thread: #{@owner}. " <<
+                   "Current thread: #{Thread.current}."
           end
+          raise ActiveRecordError, msg
         end
+
+        @owner = Thread.current
       end
 
       def schema_cache=(cache)
@@ -154,6 +169,7 @@ module ActiveRecord
         @schema_cache = cache
       end
 
+      # this method must only be called while holding connection pool's mutex
       def expire
         @owner = nil
       end
@@ -247,6 +263,11 @@ module ActiveRecord
 
       # Does this adapter support datetime with precision?
       def supports_datetime_with_precision?
+        false
+      end
+
+      # Does this adapter support json data type?
+      def supports_json?
         false
       end
 
@@ -387,8 +408,8 @@ module ActiveRecord
         end
       end
 
-      def new_column(name, default, sql_type_metadata = nil, null = true)
-        Column.new(name, default, sql_type_metadata, null)
+      def new_column(name, default, sql_type_metadata = nil, null = true, default_function = nil, collation = nil)
+        Column.new(name, default, sql_type_metadata, null, default_function, collation)
       end
 
       def lookup_cast_type(sql_type) # :nodoc:

@@ -9,6 +9,7 @@ require 'active_support/testing/isolation'
 require 'active_support/testing/constant_lookup'
 require 'active_support/testing/time_helpers'
 require 'active_support/testing/file_fixtures'
+require 'active_support/testing/composite_filter'
 require 'active_support/core_ext/kernel/reporting'
 
 module ActiveSupport
@@ -36,14 +37,16 @@ module ActiveSupport
       # Possible values are +:random+, +:parallel+, +:alpha+, +:sorted+.
       # Defaults to +:random+.
       def test_order
-        test_order = ActiveSupport.test_order
+        ActiveSupport.test_order ||= :random
+      end
 
-        if test_order.nil?
-          test_order = :random
-          self.test_order = test_order
+      def run(reporter, options = {})
+        if options[:patterns] && options[:patterns].any? { |p| p =~ /:\d+/ }
+          options[:filter] = \
+            Testing::CompositeFilter.new(self, options[:filter], options[:patterns])
         end
 
-        test_order
+        super
       end
     end
 

@@ -4,7 +4,7 @@ require 'active_support/core_ext/string/inflections'
 
 module ActiveJob
   # The <tt>ActiveJob::QueueAdapter</tt> module is used to load the
-  # correct adapter. The default queue adapter is the :inline queue.
+  # correct adapter. The default queue adapter is the +:inline+ queue.
   module QueueAdapter #:nodoc:
     extend ActiveSupport::Concern
 
@@ -15,12 +15,14 @@ module ActiveJob
 
     # Includes the setter method for changing the active queue adapter.
     module ClassMethods
+      # Returns the backend queue provider. The default queue adapter
+      # is the +:inline+ queue. See QueueAdapters for more information.
       def queue_adapter
         _queue_adapter
       end
 
       # Specify the backend queue provider. The default queue adapter
-      # is the :inline queue. See QueueAdapters for more
+      # is the +:inline+ queue. See QueueAdapters for more
       # information.
       def queue_adapter=(name_or_adapter_or_class)
         self._queue_adapter = interpret_adapter(name_or_adapter_or_class)

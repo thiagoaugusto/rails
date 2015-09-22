@@ -167,7 +167,7 @@ module ActiveRecord
     # writing, the only database that we're aware of that supports true nested
     # transactions, is MS-SQL. Because of this, Active Record emulates nested
     # transactions by using savepoints on MySQL and PostgreSQL. See
-    # http://dev.mysql.com/doc/refman/5.6/en/savepoint.html
+    # http://dev.mysql.com/doc/refman/5.7/en/savepoint.html
     # for more information about savepoints.
     #
     # === Callbacks
@@ -196,17 +196,16 @@ module ActiveRecord
     # automatically released. The following example demonstrates the problem:
     #
     #   Model.connection.transaction do                           # BEGIN
-    #     Model.connection.transaction(requires_new: true) do  # CREATE SAVEPOINT active_record_1
+    #     Model.connection.transaction(requires_new: true) do     # CREATE SAVEPOINT active_record_1
     #       Model.connection.create_table(...)                    # active_record_1 now automatically released
-    #     end                                                     # RELEASE savepoint active_record_1
+    #     end                                                     # RELEASE SAVEPOINT active_record_1
     #                                                             # ^^^^ BOOM! database error!
     #   end
     #
     # Note that "TRUNCATE" is also a MySQL DDL statement!
     module ClassMethods
-      # See ActiveRecord::Transactions::ClassMethods for detailed documentation.
+      # See the ConnectionAdapters::DatabaseStatements#transaction API docs.
       def transaction(options = {}, &block)
-        # See the ConnectionAdapters::DatabaseStatements#transaction API docs.
         connection.transaction(options, &block)
       end
 
@@ -319,8 +318,8 @@ module ActiveRecord
     end
 
     def before_committed! # :nodoc:
-      run_callbacks :before_commit_without_transaction_enrollment
-      run_callbacks :before_commit
+      _run_before_commit_without_transaction_enrollment_callbacks
+      _run_before_commit_callbacks
     end
 
     # Call the +after_commit+ callbacks.
@@ -329,8 +328,8 @@ module ActiveRecord
     # but call it after the commit of a destroyed object.
     def committed!(should_run_callbacks: true) #:nodoc:
       if should_run_callbacks && destroyed? || persisted?
-        run_callbacks :commit_without_transaction_enrollment
-        run_callbacks :commit
+        _run_commit_without_transaction_enrollment_callbacks
+        _run_commit_callbacks
       end
     ensure
       force_clear_transaction_record_state
@@ -340,8 +339,8 @@ module ActiveRecord
     # state should be rolled back to the beginning or just to the last savepoint.
     def rolledback!(force_restore_state: false, should_run_callbacks: true) #:nodoc:
       if should_run_callbacks
-        run_callbacks :rollback
-        run_callbacks :rollback_without_transaction_enrollment
+        _run_rollback_callbacks
+        _run_rollback_without_transaction_enrollment_callbacks
       end
     ensure
       restore_transaction_record_state(force_restore_state)
@@ -380,6 +379,10 @@ module ActiveRecord
         raise ActiveRecord::Rollback unless status
       end
       status
+    ensure
+      if @transaction_state && @transaction_state.committed?
+        clear_transaction_record_state
+      end
     end
 
     protected

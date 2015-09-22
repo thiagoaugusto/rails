@@ -47,6 +47,15 @@ module ActiveRecord
 
   # Raised when Active Record cannot find record by given id or set of ids.
   class RecordNotFound < ActiveRecordError
+    attr_reader :model, :primary_key, :id
+
+    def initialize(message = nil, model = nil, primary_key = nil, id = nil)
+      @primary_key = primary_key
+      @model = model
+      @id = id
+
+      super(message)
+    end
   end
 
   # Raised by ActiveRecord::Base.save! and ActiveRecord::Base.create! methods when record cannot be
@@ -54,7 +63,7 @@ module ActiveRecord
   class RecordNotSaved < ActiveRecordError
     attr_reader :record
 
-    def initialize(message, record = nil)
+    def initialize(message = nil, record = nil)
       @record = record
       super(message)
     end
@@ -71,9 +80,9 @@ module ActiveRecord
   class RecordNotDestroyed < ActiveRecordError
     attr_reader :record
 
-    def initialize(record)
+    def initialize(message = nil, record = nil)
       @record = record
-      super()
+      super(message)
     end
   end
 
@@ -83,9 +92,9 @@ module ActiveRecord
   class StatementInvalid < ActiveRecordError
     attr_reader :original_exception
 
-    def initialize(message, original_exception = nil)
-      super(message)
+    def initialize(message = nil, original_exception = nil)
       @original_exception = original_exception
+      super(message)
     end
   end
 
@@ -125,10 +134,14 @@ module ActiveRecord
   class StaleObjectError < ActiveRecordError
     attr_reader :record, :attempted_action
 
-    def initialize(record, attempted_action)
-      super("Attempted to #{attempted_action} a stale object: #{record.class.name}")
-      @record = record
-      @attempted_action = attempted_action
+    def initialize(record = nil, attempted_action = nil)
+      if record && attempted_action
+        @record = record
+        @attempted_action = attempted_action
+        super("Attempted to #{attempted_action} a stale object: #{record.class.name}.")
+      else
+        super("Stale object error.")
+      end
     end
 
   end
@@ -187,7 +200,7 @@ module ActiveRecord
   class AttributeAssignmentError < ActiveRecordError
     attr_reader :exception, :attribute
 
-    def initialize(message, exception, attribute)
+    def initialize(message = nil, exception = nil, attribute = nil)
       super(message)
       @exception = exception
       @attribute = attribute
@@ -200,7 +213,7 @@ module ActiveRecord
   class MultiparameterAssignmentErrors < ActiveRecordError
     attr_reader :errors
 
-    def initialize(errors)
+    def initialize(errors = nil)
       @errors = errors
     end
   end
@@ -209,11 +222,16 @@ module ActiveRecord
   class UnknownPrimaryKey < ActiveRecordError
     attr_reader :model
 
-    def initialize(model)
-      super("Unknown primary key for table #{model.table_name} in model #{model}.")
-      @model = model
+    def initialize(model = nil, description = nil)
+      if model
+        message = "Unknown primary key for table #{model.table_name} in model #{model}."
+        message += "\n#{description}" if description
+        @model = model
+        super(message)
+      else
+        super("Unknown primary key.")
+      end
     end
-
   end
 
   # Raised when a relation cannot be mutated because it's already loaded.

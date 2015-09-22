@@ -1,3 +1,89 @@
+*   `url_for` does not modify its arguments when generating polymorphic URLs.
+
+    *Bernerd Schaefer*
+
+*   `number_to_currency` and `number_with_delimiter` now accept custom `delimiter_pattern` option 
+     to handle placement of delimiter, to support currency formats like INR 
+     
+     Example: 
+        
+        number_to_currency(1230000, delimiter_pattern: /(\d+?)(?=(\d\d)+(\d)(?!\d))/, unit: '₹', format: "%u %n")
+        # => '₹ 12,30,000.00' 
+        
+    *Vipul A M*
+    
+*   Make `disable_with` the default behavior for submit tags. Disables the
+    button on submit to prevent double submits.
+
+    *Justin Schiff*
+
+*   Add a break_sequence option to word_wrap so you can specify a custom break.
+
+    * Mauricio Gomez *
+
+*   Add wildcard matching to explicit dependencies.
+
+    Turns:
+
+    ```erb
+    <% # Template Dependency: recordings/threads/events/subscribers_changed %>
+    <% # Template Dependency: recordings/threads/events/completed %>
+    <% # Template Dependency: recordings/threads/events/uncompleted %>
+    ```
+
+    Into:
+
+    ```erb
+    <% # Template Dependency: recordings/threads/events/* %>
+    ```
+
+    *Kasper Timm Hansen*
+
+*   Allow defining explicit collection caching using a `# Template Collection: ...`
+    directive inside templates.
+
+    *Dov Murik*
+
+*   Asset helpers raise `ArgumentError` when `nil` is passed as a source.
+
+    *Anton Kolomiychuk*
+
+*   Always attach the template digest to the cache key for collection caching
+    even when `virtual_path` is not available from the view context.
+    Which could happen if the rendering was done directly in the controller
+    and not in a template.
+
+    Fixes #20535
+
+    *Roque Pinel*
+
+*   Improve detection of partial templates eligible for collection caching,
+    now allowing multi-line comments at the beginning of the template file.
+
+    *Dov Murik*
+
+*   Raise an ArgumentError when a false value for `include_blank` is passed to a
+    required select field (to comply with the HTML5 spec).
+
+    *Grey Baker*
+
+*   Do not put partial name to `local_assigns` when rendering without
+    an object or a collection.
+
+    *Henrik Nygren*
+
+*   Remove `:rescue_format` option for `translate` helper since it's no longer
+    supported by I18n.
+
+    *Bernard Potocki*
+
+*   `translate` should handle `raise` flag correctly in case of both main and default
+    translation is missing.
+
+    Fixes #19967
+
+    *Bernard Potocki*
+
 *   Load the `default_form_builder` from the controller on initialization, which overrides
     the global config if it is present.
 
@@ -108,7 +194,7 @@
 
     *Angelo Capilleri*
 
-*   Allow entries without a link tag in AtomFeedHelper.
+*   Allow entries without a link tag in `AtomFeedHelper`.
 
     *Daniel Gomez de Souza*
 

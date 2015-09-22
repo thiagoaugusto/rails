@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 require 'active_support/core_ext/array/conversions'
 require 'active_support/core_ext/string/inflections'
 require 'active_support/core_ext/object/deep_dup'
@@ -43,11 +41,11 @@ module ActiveModel
   #     end
   #   end
   #
-  # The last three methods are required in your object for Errors to be
+  # The last three methods are required in your object for +Errors+ to be
   # able to generate error messages correctly and also handle multiple
-  # languages. Of course, if you extend your object with ActiveModel::Translation
+  # languages. Of course, if you extend your object with <tt>ActiveModel::Translation</tt>
   # you will not need to implement the last two. Likewise, using
-  # ActiveModel::Validations will handle the validation related methods
+  # <tt>ActiveModel::Validations</tt> will handle the validation related methods
   # for you.
   #
   # The above allows you to do:
@@ -452,7 +450,6 @@ module ActiveModel
         defaults = []
       end
 
-      defaults << options.delete(:message)
       defaults << :"#{@base.class.i18n_scope}.errors.messages.#{type}" if @base.class.respond_to?(:i18n_scope)
       defaults << :"errors.attributes.#{attribute}.#{type}"
       defaults << :"errors.messages.#{type}"
@@ -461,6 +458,7 @@ module ActiveModel
       defaults.flatten!
 
       key = defaults.shift
+      defaults = options.delete(:message) if options[:message]
       value = (attribute != :base ? @base.send(:read_attribute_for_validation, attribute) : nil)
 
       options = {

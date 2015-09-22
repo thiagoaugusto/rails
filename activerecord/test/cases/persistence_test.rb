@@ -17,6 +17,7 @@ require 'models/minivan'
 require 'models/owner'
 require 'models/person'
 require 'models/pet'
+require 'models/ship'
 require 'models/toy'
 require 'rexml/document'
 
@@ -125,7 +126,7 @@ class PersistenceTest < ActiveRecord::TestCase
     assert ! topics_by_mary.empty?
 
     assert_difference('Topic.count', -topics_by_mary.size) do
-      destroyed = Topic.destroy_all(conditions).sort_by(&:id)
+      destroyed = Topic.where(conditions).destroy_all.sort_by(&:id)
       assert_equal topics_by_mary, destroyed
       assert destroyed.all?(&:frozen?), "destroyed topics should be frozen"
     end
@@ -895,6 +896,33 @@ class PersistenceTest < ActiveRecord::TestCase
 
     assert_equal "Welcome to the weblog", post.title
     assert_not post.new_record?
+  end
+
+  def test_reload_via_querycache
+    ActiveRecord::Base.connection.enable_query_cache!
+    ActiveRecord::Base.connection.clear_query_cache
+    assert ActiveRecord::Base.connection.query_cache_enabled, 'cache should be on'
+    parrot = Parrot.create(:name => 'Shane')
+
+    # populate the cache with the SELECT result
+    found_parrot = Parrot.find(parrot.id)
+    assert_equal parrot.id, found_parrot.id
+
+    # Manually update the 'name' attribute in the DB directly
+    assert_equal 1, ActiveRecord::Base.connection.query_cache.length
+    ActiveRecord::Base.uncached do
+      found_parrot.name = 'Mary'
+      found_parrot.save
+    end
+
+    # Now reload, and verify that it gets the DB version, and not the querycache version
+    found_parrot.reload
+    assert_equal 'Mary', found_parrot.name
+
+    found_parrot = Parrot.find(parrot.id)
+    assert_equal 'Mary', found_parrot.name
+  ensure
+    ActiveRecord::Base.connection.disable_query_cache!
   end
 
   class SaveTest < ActiveRecord::TestCase

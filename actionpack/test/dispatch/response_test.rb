@@ -42,6 +42,18 @@ class ResponseTest < ActiveSupport::TestCase
     assert_equal Encoding::UTF_8, response.body.encoding
   end
 
+  def test_response_charset_writer
+    @response.charset = 'utf-16'
+    assert_equal 'utf-16', @response.charset
+    @response.charset = nil
+    assert_equal 'utf-8', @response.charset
+  end
+
+  def test_setting_content_type_header_impacts_content_type_method
+    @response.headers['Content-Type'] = "application/aaron"
+    assert_equal 'application/aaron', @response.content_type
+  end
+
   test "simple output" do
     @response.body = "Hello, World!"
 
@@ -60,6 +72,13 @@ class ResponseTest < ActiveSupport::TestCase
     assert_equal 200, ActionDispatch::Response.new('200 OK').status
   end
 
+  def test_only_set_charset_still_defaults_to_text_html
+    response = ActionDispatch::Response.new
+    response.charset = "utf-16"
+    _,headers,_ = response.to_a
+    assert_equal "text/html; charset=utf-16", headers['Content-Type']
+  end
+
   test "utf8 output" do
     @response.body = [1090, 1077, 1089, 1090].pack("U*")
 
@@ -72,12 +91,14 @@ class ResponseTest < ActiveSupport::TestCase
 
   test "content type" do
     [204, 304].each do |c|
+      @response = ActionDispatch::Response.new
       @response.status = c.to_s
       _, headers, _ = @response.to_a
       assert !headers.has_key?("Content-Type"), "#{c} should not have Content-Type header"
     end
 
     [200, 302, 404, 500].each do |c|
+      @response = ActionDispatch::Response.new
       @response.status = c.to_s
       _, headers, _ = @response.to_a
       assert headers.has_key?("Content-Type"), "#{c} did not have Content-Type header"
@@ -157,18 +178,20 @@ class ResponseTest < ActiveSupport::TestCase
   test "read charset and content type" do
     resp = ActionDispatch::Response.new.tap { |response|
       response.charset = 'utf-16'
-      response.content_type = Mime::XML
+      response.content_type = Mime::Type[:XML]
       response.body = 'Hello'
     }
     resp.to_a
 
     assert_equal('utf-16', resp.charset)
-    assert_equal(Mime::XML, resp.content_type)
+    assert_equal(Mime::Type[:XML], resp.content_type)
 
     assert_equal('application/xml; charset=utf-16', resp.headers['Content-Type'])
   end
 
   test "read content type without charset" do
+    jruby_skip "https://github.com/jruby/jruby/issues/3138"
+
     original = ActionDispatch::Response.default_charset
     begin
       ActionDispatch::Response.default_charset = 'utf-16'
@@ -294,7 +317,7 @@ class ResponseIntegrationTest < ActionDispatch::IntegrationTest
     @app = lambda { |env|
       ActionDispatch::Response.new.tap { |resp|
         resp.charset = 'utf-16'
-        resp.content_type = Mime::XML
+        resp.content_type = Mime::Type[:XML]
         resp.body = 'Hello'
       }.to_a
     }
@@ -303,7 +326,7 @@ class ResponseIntegrationTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     assert_equal('utf-16', @response.charset)
-    assert_equal(Mime::XML, @response.content_type)
+    assert_equal(Mime::Type[:XML], @response.content_type)
 
     assert_equal('application/xml; charset=utf-16', @response.headers['Content-Type'])
   end
@@ -319,7 +342,7 @@ class ResponseIntegrationTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     assert_equal('utf-16', @response.charset)
-    assert_equal(Mime::XML, @response.content_type)
+    assert_equal(Mime::Type[:XML], @response.content_type)
 
     assert_equal('application/xml; charset=utf-16', @response.headers['Content-Type'])
   end

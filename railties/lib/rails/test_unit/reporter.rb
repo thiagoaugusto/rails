@@ -1,9 +1,13 @@
+require "active_support/core_ext/class/attribute"
 require "minitest"
 
 module Rails
   class TestUnitReporter < Minitest::StatisticsReporter
+    class_attribute :executable
+    self.executable = "bin/rails test"
+
     def report
-      return if results.empty?
+      return if filtered_results.empty?
       io.puts
       io.puts "Failed tests:"
       io.puts
@@ -11,12 +15,22 @@ module Rails
     end
 
     def aggregated_results # :nodoc:
-      filtered_results = results.dup
-      filtered_results.reject!(&:skipped?) unless options[:verbose]
       filtered_results.map do |result|
         location, line = result.method(result.name).source_location
-        "bin/rails test #{location}:#{line}"
+        "#{self.executable} #{relative_path_for(location)}:#{line}"
       end.join "\n"
+    end
+
+    def filtered_results
+      if options[:verbose]
+        results
+      else
+        results.reject(&:skipped?)
+      end
+    end
+
+    def relative_path_for(file)
+      file.sub(/^#{Rails.root}\/?/, '')
     end
   end
 end

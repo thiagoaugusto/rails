@@ -11,11 +11,11 @@ require 'models/company'
 require 'models/computer'
 require 'models/course'
 require 'models/developer'
-require 'models/computer'
 require 'models/joke'
 require 'models/matey'
 require 'models/parrot'
 require 'models/pirate'
+require 'models/doubloon'
 require 'models/post'
 require 'models/randomly_named_c1'
 require 'models/reply'
@@ -216,6 +216,13 @@ class FixturesTest < ActiveRecord::TestCase
     end
   end
 
+  def test_yaml_file_with_invalid_column
+    e = assert_raise(ActiveRecord::Fixture::FixtureError) do
+      ActiveRecord::FixtureSet.create_fixtures(FIXTURES_ROOT + "/naked/yml", "parrots")
+    end
+    assert_equal(%(table "parrots" has no column named "arrr".), e.message)
+  end
+
   def test_omap_fixtures
     assert_nothing_raised do
       fixtures = ActiveRecord::FixtureSet.new(Account.connection, 'categories', Category, FIXTURES_ROOT + "/categories_ordered")
@@ -251,18 +258,19 @@ class FixturesTest < ActiveRecord::TestCase
   def test_fixtures_are_set_up_with_database_env_variable
     db_url_tmp = ENV['DATABASE_URL']
     ENV['DATABASE_URL'] = "sqlite3::memory:"
-    ActiveRecord::Base.stubs(:configurations).returns({})
-    test_case = Class.new(ActiveRecord::TestCase) do
-      fixtures :accounts
+    ActiveRecord::Base.stub(:configurations, {}) do
+      test_case = Class.new(ActiveRecord::TestCase) do
+        fixtures :accounts
 
-      def test_fixtures
-        assert accounts(:signals37)
+        def test_fixtures
+          assert accounts(:signals37)
+        end
       end
+
+      result = test_case.new(:test_fixtures).run
+
+      assert result.passed?, "Expected #{result.name} to pass:\n#{result}"
     end
-
-    result = test_case.new(:test_fixtures).run
-
-    assert result.passed?, "Expected #{result.name} to pass:\n#{result}"
   ensure
     ENV['DATABASE_URL'] = db_url_tmp
   end
@@ -400,9 +408,11 @@ class FixturesWithoutInstantiationTest < ActiveRecord::TestCase
   end
 
   def test_reloading_fixtures_through_accessor_methods
+    topic = Struct.new(:title)
     assert_equal "The First Topic", topics(:first).title
-    @loaded_fixtures['topics']['first'].expects(:find).returns(stub(:title => "Fresh Topic!"))
-    assert_equal "Fresh Topic!", topics(:first, true).title
+    assert_called(@loaded_fixtures['topics']['first'], :find, returns: topic.new("Fresh Topic!")) do
+      assert_equal "Fresh Topic!", topics(:first, true).title
+    end
   end
 end
 
@@ -691,7 +701,7 @@ end
 
 class FoxyFixturesTest < ActiveRecord::TestCase
   fixtures :parrots, :parrots_pirates, :pirates, :treasures, :mateys, :ships, :computers,
-           :developers, :"admin/accounts", :"admin/users", :live_parrots, :dead_parrots
+           :developers, :"admin/accounts", :"admin/users", :live_parrots, :dead_parrots, :books
 
   if ActiveRecord::Base.connection.adapter_name == 'PostgreSQL'
     require 'models/uuid_parent'
@@ -841,6 +851,13 @@ class FoxyFixturesTest < ActiveRecord::TestCase
     assert admin_accounts(:signals37).users.include?(admin_users(:david))
     assert_equal 2, admin_accounts(:signals37).users.size
   end
+
+  def test_resolves_enums
+    assert books(:awdr).published?
+    assert books(:awdr).read?
+    assert books(:rfr).proposed?
+    assert books(:ddd).published?
+  end
 end
 
 class ActiveSupportSubclassWithFixturesTest < ActiveRecord::TestCase
@@ -894,5 +911,14 @@ class FixturesWithDefaultScopeTest < ActiveRecord::TestCase
 
   test "allows access to fixtures excluded by a default scope" do
     assert_equal "special", bulbs(:special).name
+  end
+end
+
+class FixturesWithAbstractBelongsTo < ActiveRecord::TestCase
+  fixtures :pirates, :doubloons
+
+  test "creates fixtures with belongs_to associations defined in abstract base classes" do
+    assert_not_nil doubloons(:blackbeards_doubloon)
+    assert_equal pirates(:blackbeard), doubloons(:blackbeards_doubloon).pirate
   end
 end

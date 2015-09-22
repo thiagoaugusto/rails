@@ -1,11 +1,9 @@
 require 'yaml'
-require 'set'
 require 'active_support/benchmarkable'
 require 'active_support/dependencies'
 require 'active_support/descendants_tracker'
 require 'active_support/time'
 require 'active_support/core_ext/module/attribute_accessors'
-require 'active_support/core_ext/class/delegating_attributes'
 require 'active_support/core_ext/array/extract_options'
 require 'active_support/core_ext/hash/deep_merge'
 require 'active_support/core_ext/hash/slice'
@@ -281,6 +279,7 @@ module ActiveRecord #:nodoc:
     extend Explain
     extend Enum
     extend Delegation::DelegateCache
+    extend CollectionCacheKey
 
     include Core
     include Persistence

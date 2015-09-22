@@ -214,8 +214,9 @@ end
 
 Due to a [change in Rack](https://github.com/rack/rack/commit/28b014484a8ac0bbb388e7eaeeef159598ec64fc),
 `rails server` now listens on `localhost` instead of `0.0.0.0` by default. This
-should have minimal impact on the standard development workflow as http://localhost:3000
-will continue to work as before on your own machine.
+should have minimal impact on the standard development workflow as both
+http://127.0.0.1:3000 and http://localhost:3000 will continue to work as before
+on your own machine.
 
 However, with this change you will no longer be able to access the Rails
 server from a different machine, for example if your development environment
@@ -225,6 +226,17 @@ restore the old behavior.
 
 If you do this, be sure to configure your firewall properly such that only
 trusted machines on your network can access your development server.
+
+### Changed status option symbols for `render`
+
+Due to a [change in Rack](https://github.com/rack/rack/commit/be28c6a2ac152fe4adfbef71f3db9f4200df89e8), the symbols that the `render` method accepts for the `:status` option have changed:
+
+- 306: `:reserved` has been removed.
+- 413: `:request_entity_too_large` has been renamed to `:payload_too_large`.
+- 414: `:request_uri_too_long` has been renamed to `:uri_too_long`.
+- 416: `:requested_range_not_satisfiable` has been renamed to `:range_not_satisfiable`.
+
+Keep in mind that if calling `render` with an unknown symbol, the response status will default to 500.
 
 ### HTML Sanitizer
 

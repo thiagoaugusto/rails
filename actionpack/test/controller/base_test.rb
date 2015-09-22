@@ -13,7 +13,7 @@ end
 
 class NonEmptyController < ActionController::Base
   def public_action
-    render :nothing => true
+    head :ok
   end
 end
 
@@ -29,7 +29,7 @@ end
 
 class OptionalDefaultUrlOptionsController < ActionController::Base
   def show
-    render nothing: true
+    head :ok
   end
 
   def default_url_options
@@ -53,7 +53,7 @@ end
 
 class ActionMissingController < ActionController::Base
   def action_missing(action)
-    render :text => "Response for #{action}"
+    render plain: "Response for #{action}"
   end
 end
 
@@ -93,6 +93,8 @@ end
 class ControllerInstanceTests < ActiveSupport::TestCase
   def setup
     @empty = EmptyController.new
+    @empty.set_request!(ActionDispatch::Request.new({}))
+    @empty.set_response!(EmptyController.make_response!(@empty.request))
     @contained = Submodule::ContainedEmptyController.new
     @empty_controllers = [@empty, @contained]
   end
@@ -127,8 +129,6 @@ class PerformActionTest < ActionController::TestCase
     # a more accurate simulation of what happens in "real life".
     @controller.logger = ActiveSupport::Logger.new(nil)
 
-    @request     = ActionController::TestRequest.new
-    @response    = ActionController::TestResponse.new
     @request.host = "www.nextangle.com"
   end
 

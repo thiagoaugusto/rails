@@ -280,7 +280,7 @@ class CookiesTest < ActionController::TestCase
   def test_setting_the_same_value_to_cookie
     request.cookies[:user_name] = 'david'
     get :authenticate
-    assert response.cookies.empty?
+    assert_predicate response.cookies, :empty?
   end
 
   def test_setting_the_same_value_to_permanent_cookie
@@ -321,10 +321,12 @@ class CookiesTest < ActionController::TestCase
   end
 
   def test_setting_cookie_with_secure_when_always_write_cookie_is_true
-    ActionDispatch::Cookies::CookieJar.any_instance.stubs(:always_write_cookie).returns(true)
+    old_cookie, @request.cookie_jar.always_write_cookie = @request.cookie_jar.always_write_cookie, true
     get :authenticate_with_secure
     assert_cookie_header "user_name=david; path=/; secure"
     assert_equal({"user_name" => "david"}, @response.cookies)
+  ensure
+    @request.cookie_jar.always_write_cookie = old_cookie
   end
 
   def test_not_setting_cookie_with_secure
@@ -360,7 +362,7 @@ class CookiesTest < ActionController::TestCase
   def test_delete_unexisting_cookie
     request.cookies.clear
     get :delete_cookie
-    assert @response.cookies.empty?
+    assert_predicate @response.cookies, :empty?
   end
 
   def test_deleted_cookie_predicate
@@ -378,7 +380,7 @@ class CookiesTest < ActionController::TestCase
 
   def test_cookies_persist_throughout_request
     response = get :authenticate
-    assert response.headers["Set-Cookie"] =~ /user_name=david/
+    assert_match(/user_name=david/, response.headers["Set-Cookie"])
   end
 
   def test_set_permanent_cookie
@@ -649,6 +651,15 @@ class CookiesTest < ActionController::TestCase
       get :tampered_cookies
       assert_response :success
     end
+  end
+
+  def test_cookie_jar_mutated_by_request_persists_on_future_requests
+    get :authenticate
+    cookie_jar = @request.cookie_jar
+    cookie_jar.signed[:user_id] = 123
+    assert_equal ["user_name", "user_id"], @request.cookie_jar.instance_variable_get(:@cookies).keys
+    get :get_signed_cookie
+    assert_equal ["user_name", "user_id"], @request.cookie_jar.instance_variable_get(:@cookies).keys
   end
 
   def test_raises_argument_error_if_missing_secret

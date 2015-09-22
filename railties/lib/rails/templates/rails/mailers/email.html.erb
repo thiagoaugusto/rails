@@ -88,7 +88,7 @@
     <% unless @email.attachments.nil? || @email.attachments.empty? %>
       <dt>Attachments:</dt>
       <dd>
-        <%= @email.attachments.map { |a| a.respond_to?(:original_filename) ? a.original_filename : a.filename }.inspect %>
+        <%= @email.attachments.map { |a| a.respond_to?(:original_filename) ? a.original_filename : a.filename }.join(', ') %>
       </dd>
     <% end %>
 
@@ -103,7 +103,7 @@
   </dl>
 </header>
 
-<% if @part.mime_type %>
+<% if @part && @part.mime_type %>
   <iframe seamless name="messageBody" src="?part=<%= Rack::Utils.escape(@part.mime_type) %>"></iframe>
 <% else %>
   <p>

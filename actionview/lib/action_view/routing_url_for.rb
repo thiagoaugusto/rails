@@ -92,13 +92,24 @@ module ActionView
         end
 
         super(options)
+      when ActionController::Parameters
+        unless options.key?(:only_path)
+          if options[:host].nil?
+            options[:only_path] = _generate_paths_by_default
+          else
+            options[:only_path] = false
+          end
+        end
+
+        super(options)
       when :back
         _back_url
       when Array
+        components = options.dup
         if _generate_paths_by_default
-          polymorphic_path(options, options.extract_options!)
+          polymorphic_path(components, components.extract_options!)
         else
-          polymorphic_url(options, options.extract_options!)
+          polymorphic_url(components, components.extract_options!)
         end
       else
         method = _generate_paths_by_default ? :path : :url

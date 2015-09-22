@@ -155,7 +155,7 @@ module ActionMailer
   # Note that <tt>deliver_later</tt> will execute your method from the background job.
   #
   # You never instantiate your mailer class. Rather, you just call the method you defined on the class itself.
-  # All instance method are expected to return a message object to be sent.
+  # All instance methods are expected to return a message object to be sent.
   #
   # = Multipart Emails
   #
@@ -257,8 +257,8 @@ module ActionMailer
   # <tt>ActionMailer::Base</tt> sets the following:
   #
   # * <tt>mime_version: "1.0"</tt>
-  # * <tt>charset:      "UTF-8",</tt>
-  # * <tt>content_type: "text/plain",</tt>
+  # * <tt>charset:      "UTF-8"</tt>
+  # * <tt>content_type: "text/plain"</tt>
   # * <tt>parts_order:  [ "text/plain", "text/enriched", "text/html" ]</tt>
   #
   # <tt>parts_order</tt> and <tt>charset</tt> are not actually valid <tt>Mail::Message</tt> header fields,
@@ -286,7 +286,7 @@ module ActionMailer
   #   end
   #
   # Note that the proc is evaluated right at the start of the mail message generation, so if you
-  # set something in the defaults using a proc, and then set the same thing inside of your
+  # set something in the default using a proc, and then set the same thing inside of your
   # mailer method, it will get over written by the mailer method.
   #
   # It is also possible to set these default options that will be used in all mailers through
@@ -319,8 +319,9 @@ module ActionMailer
   # callbacks in the same manner that you would use callbacks in classes that
   # inherit from <tt>ActionController::Base</tt>.
   #
-  # Note that unless you have a specific reason to do so, you should prefer using before_action
-  # rather than after_action in your Action Mailer classes so that headers are parsed properly.
+  # Note that unless you have a specific reason to do so, you should prefer
+  # using <tt>before_action</tt> rather than <tt>after_action</tt> in your
+  # Action Mailer classes so that headers are parsed properly.
   #
   # = Previewing emails
   #
@@ -412,6 +413,8 @@ module ActionMailer
   #
   # * <tt>deliveries</tt> - Keeps an array of all the emails sent out through the Action Mailer with
   #   <tt>delivery_method :test</tt>. Most useful for unit and functional testing.
+  #
+  # * <tt>deliver_later_queue_name</tt> - The name of the queue used with <tt>deliver_later</tt>
   class Base < AbstractController::Base
     include DeliveryMethods
     include Previews
@@ -817,7 +820,7 @@ module ActionMailer
       # Set configure delivery behavior
       wrap_delivery_behavior!(headers.delete(:delivery_method), headers.delete(:delivery_method_options))
 
-      # Assign all headers except parts_order, content_type and body
+      # Assign all headers except parts_order, content_type, body, template_name, and template_path
       assignable = headers.except(:parts_order, :content_type, :body, :template_name, :template_path)
       assignable.each { |k, v| m[k] = v }
 

@@ -227,6 +227,31 @@ module ActiveRecord
         @association.last(*args)
       end
 
+      # Gives a record (or N records if a parameter is supplied) from the collection
+      # using the same rules as <tt>ActiveRecord::Base.take</tt>.
+      #
+      #   class Person < ActiveRecord::Base
+      #     has_many :pets
+      #   end
+      #
+      #   person.pets
+      #   # => [
+      #   #       #<Pet id: 1, name: "Fancy-Fancy", person_id: 1>,
+      #   #       #<Pet id: 2, name: "Spook", person_id: 1>,
+      #   #       #<Pet id: 3, name: "Choo-Choo", person_id: 1>
+      #   #    ]
+      #
+      #   person.pets.take # => #<Pet id: 1, name: "Fancy-Fancy", person_id: 1>
+      #
+      #   person.pets.take(2)
+      #   # => [
+      #   #      #<Pet id: 1, name: "Fancy-Fancy", person_id: 1>,
+      #   #      #<Pet id: 2, name: "Spook", person_id: 1>
+      #   #    ]
+      #
+      #   another_person_without.pets         # => []
+      #   another_person_without.pets.take    # => nil
+      #   another_person_without.pets.take(2) # => []
       def take(n = nil)
         @association.take(n)
       end
@@ -470,15 +495,16 @@ module ActiveRecord
         @association.destroy_all
       end
 
-      # Deletes the +records+ supplied and removes them from the collection. For
-      # +has_many+ associations, the deletion is done according to the strategy
-      # specified by the <tt>:dependent</tt> option. Returns an array with the
+      # Deletes the +records+ supplied from the collection according to the strategy
+      # specified by the +:dependent+ option. If no +:dependent+ option is given,
+      # then it will follow the default strategy. Returns an array with the
       # deleted records.
       #
-      # If no <tt>:dependent</tt> option is given, then it will follow the default
-      # strategy. The default strategy is <tt>:nullify</tt>. This sets the foreign
-      # keys to <tt>NULL</tt>. For, +has_many+ <tt>:through</tt>, the default
-      # strategy is +delete_all+.
+      # For +has_many :through+ associations, the default deletion strategy is
+      # +:delete_all+.
+      #
+      # For +has_many+ associations, the default deletion strategy is +:nullify+.
+      # This sets the foreign keys to +NULL+.
       #
       #   class Person < ActiveRecord::Base
       #     has_many :pets # dependent: :nullify option by default
@@ -780,7 +806,7 @@ module ActiveRecord
       #   person.pets.any?  # => false
       #
       #   person.pets << Pet.new(name: 'Snoop')
-      #   person.pets.count # => 0
+      #   person.pets.count # => 1
       #   person.pets.any?  # => true
       #
       # You can also pass a +block+ to define criteria. The behavior
@@ -855,7 +881,7 @@ module ActiveRecord
         !!@association.include?(record)
       end
 
-      def arel
+      def arel #:nodoc:
         scope.arel
       end
 
@@ -970,7 +996,7 @@ module ActiveRecord
       alias_method :append, :<<
 
       def prepend(*args)
-        raise NoMethodError, "prepend on association is not defined. Please use << or append"
+        raise NoMethodError, "prepend on association is not defined. Please use <<, push or append"
       end
 
       # Equivalent to +delete_all+. The difference is that returns +self+, instead

@@ -88,9 +88,10 @@ module ActiveRecord
       ##
       # :singleton-method:
       # Specifies which database schemas to dump when calling db:structure:dump.
-      # If :schema_search_path (the default), it will dumps any schemas listed in schema_search_path.
-      # Use :all to always dumps all schemas regardless of the schema_search_path.
-      # A string of comma separated schemas can also be used to pass a custom list of schemas.
+      # If the value is :schema_search_path (the default), any schemas listed in
+      # schema_search_path are dumped. Use :all to dump all schemas regardless
+      # of schema_search_path, or a string of comma separated schemas for a
+      # custom list.
       mattr_accessor :dump_schemas, instance_writer: false
       self.dump_schemas = :schema_search_path
 
@@ -161,11 +162,13 @@ module ActiveRecord
         }
         record = statement.execute([id], self, connection).first
         unless record
-          raise RecordNotFound, "Couldn't find #{name} with '#{primary_key}'=#{id}"
+          raise RecordNotFound.new("Couldn't find #{name} with '#{primary_key}'=#{id}",
+                                   name, primary_key, id)
         end
         record
       rescue RangeError
-        raise RecordNotFound, "Couldn't find #{name} with an out of range value for '#{primary_key}'"
+        raise RecordNotFound.new("Couldn't find #{name} with an out of range value for '#{primary_key}'",
+                                 name, primary_key)
       end
 
       def find_by(*args) # :nodoc:
@@ -198,7 +201,7 @@ module ActiveRecord
       end
 
       def find_by!(*args) # :nodoc:
-        find_by(*args) or raise RecordNotFound.new("Couldn't find #{name}")
+        find_by(*args) or raise RecordNotFound.new("Couldn't find #{name}", name)
       end
 
       def initialize_generated_modules # :nodoc:
@@ -302,7 +305,7 @@ module ActiveRecord
       assign_attributes(attributes) if attributes
 
       yield self if block_given?
-      run_callbacks :initialize
+      _run_initialize_callbacks
     end
 
     # Initialize an empty model object from +coder+. +coder+ should be
@@ -329,8 +332,8 @@ module ActiveRecord
 
       self.class.define_attribute_methods
 
-      run_callbacks :find
-      run_callbacks :initialize
+      _run_find_callbacks
+      _run_initialize_callbacks
 
       self
     end
@@ -366,7 +369,7 @@ module ActiveRecord
       @attributes = @attributes.dup
       @attributes.reset(self.class.primary_key)
 
-      run_callbacks(:initialize)
+      _run_initialize_callbacks
 
       @new_record  = true
       @destroyed   = false

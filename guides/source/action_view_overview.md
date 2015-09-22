@@ -15,7 +15,7 @@ After reading this guide, you will know:
 What is Action View?
 --------------------
 
-Action View and Action Controller are the two major components of Action Pack. In Rails, web requests are handled by Action Pack, which splits the work into a controller part (performing the logic) and a view part (rendering a template). Typically, Action Controller will be concerned with communicating with the database and performing CRUD actions where necessary. Action View is then responsible for compiling the response.
+In Rails, web requests are handled by [Action Controller](action_controller_overview.html) and Action View. Typically, Action Controller will be concerned with communicating with the database and performing CRUD actions where necessary. Action View is then responsible for compiling the response.
 
 Action View templates are written using embedded Ruby in tags mingled with HTML. To avoid cluttering the templates with boilerplate code, a number of helper classes provide common behavior for forms, dates, and strings. It's also easy to add new helpers to your application as it evolves.
 
@@ -214,7 +214,8 @@ By default `ActionView::Partials::PartialRenderer` has its object in a local var
 <%= render partial: "product" %>
 ```
 
-within product we'll get `@product` in the local variable `product`, as if we had written:
+within `_product` partial we'll get `@product` in the local variable `product`,
+as if we had written:
 
 ```erb
 <%= render partial: "product", locals: { product: @product } %>
@@ -317,26 +318,6 @@ The `box` layout simply wraps the `_article` partial in a `div`:
 </div>
 ```
 
-The `_article` partial wraps the article's `body` in a `div` with the `id` of the article using the `div_for` helper:
-
-**articles/_article.html.erb**
-
-```html+erb
-<%= div_for(article) do %>
-  <p><%= article.body %></p>
-<% end %>
-```
-
-this would output the following:
-
-```html
-<div class='box'>
-  <div id='article_1'>
-    <p>Partial Layouts are cool!</p>
-  </div>
-</div>
-```
-
 Note that the partial layout has access to the local `article` variable that was passed into the `render` call. However, unlike application-wide layouts, partial layouts still have the underscore prefix.
 
 You can also render a block of code within a partial layout instead of calling `yield`. For example, if we didn't have the `_article` partial, we could do this instead:
@@ -345,9 +326,9 @@ You can also render a block of code within a partial layout instead of calling `
 
 ```html+erb
 <% render(layout: 'box', locals: { article: @article }) do %>
-  <%= div_for(article) do %>
+  <div>
     <p><%= article.body %></p>
-  <% end %>
+  </div>
 <% end %>
 ```
 
@@ -552,7 +533,7 @@ end
 ```ruby
 atom_feed do |feed|
   feed.title("Articles Index")
-  feed.updated((@articles.first.created_at))
+  feed.updated(@articles.first.created_at)
 
   @articles.each do |article|
     feed.entry(article) do |entry|
@@ -726,7 +707,7 @@ Returns a select tag with options for each of the minutes 0 through 59 with the 
 
 ```ruby
 # Generates a select field for minutes that defaults to the minutes for the time provided.
-select_minute(Time.now + 6.hours)
+select_minute(Time.now + 10.minutes)
 ```
 
 #### select_month
@@ -744,7 +725,7 @@ Returns a select tag with options for each of the seconds 0 through 59 with the 
 
 ```ruby
 # Generates a select field for seconds that defaults to the seconds for the time provided
-select_second(Time.now + 16.minutes)
+select_second(Time.now + 16.seconds)
 ```
 
 #### select_time
@@ -1078,14 +1059,6 @@ If `@article.author_ids` is [1], this would return:
 <input name="article[author_ids][]" type="hidden" value="" />
 ```
 
-#### country_options_for_select
-
-Returns a string of option tags for pretty much any country in the world.
-
-#### country_select
-
-Returns select and option tags for the given object and method, using country_options_for_select to generate the list of option tags.
-
 #### option_groups_from_collection_for_select
 
 Returns a string of `option` tags, like `options_from_collection_for_select`, but groups them by `optgroup` tags based on the object relationships of the arguments.
@@ -1172,8 +1145,8 @@ If `@article.person_id` is 1, this would become:
 <select name="article[person_id]">
   <option value=""></option>
   <option value="1" selected="selected">David</option>
-  <option value="2">Sam</option>
-  <option value="3">Tobias</option>
+  <option value="2">Eileen</option>
+  <option value="3">Rafael</option>
 </select>
 ```
 
@@ -1448,7 +1421,7 @@ This sanitize helper will HTML encode all tags and strip all attributes that are
 sanitize @article.body
 ```
 
-If either the `:attributes` or `:tags` options are passed, only the mentioned tags and attributes are allowed and nothing else.
+If either the `:attributes` or `:tags` options are passed, only the mentioned attributes and tags are allowed and nothing else.
 
 ```ruby
 sanitize @article.body, tags: %w(table tr td), attributes: %w(id class style)
@@ -1470,12 +1443,12 @@ Sanitizes a block of CSS code.
 Strips all link tags from text leaving just the link text.
 
 ```ruby
-strip_links("<a href="http://rubyonrails.org">Ruby on Rails</a>")
+strip_links('<a href="http://rubyonrails.org">Ruby on Rails</a>')
 # => Ruby on Rails
 ```
 
 ```ruby
-strip_links("emails to <a href="mailto:me@email.com">me@email.com</a>.")
+strip_links('emails to <a href="mailto:me@email.com">me@email.com</a>.')
 # => emails to me@email.com.
 ```
 

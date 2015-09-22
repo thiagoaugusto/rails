@@ -33,6 +33,20 @@ module ActionController
   # the main thread. Make sure your actions are thread safe, and this shouldn't
   # be a problem (don't share state across threads, etc).
   module Live
+    extend ActiveSupport::Concern
+
+    module ClassMethods
+      def make_response!(request)
+        if request.env["HTTP_VERSION"] == "HTTP/1.0"
+          super
+        else
+          Live::Response.new.tap do |res|
+            res.request = request
+          end
+        end
+      end
+    end
+
     # This class provides the ability to write an SSE (Server Sent Event)
     # to an IO stream. The class is initialized with a stream and can be used
     # to either write a JSON string or an object which can be converted to JSON.
@@ -131,8 +145,8 @@ module ActionController
 
       def write(string)
         unless @response.committed?
-          @response.headers["Cache-Control"] = "no-cache"
-          @response.headers.delete "Content-Length"
+          @response.set_header "Cache-Control", "no-cache"
+          @response.delete_header "Content-Length"
         end
 
         super
@@ -311,12 +325,7 @@ module ActionController
     end
 
     def set_response!(request)
-      if request.env["HTTP_VERSION"] == "HTTP/1.0"
-        super
-      else
-        @_response         = Live::Response.new
-        @_response.request = request
-      end
+      @_response = self.class.make_response! request
     end
   end
 end

@@ -1,24 +1,9 @@
-
 ActiveRecord::Schema.define do
   def except(adapter_names_to_exclude)
     unless [adapter_names_to_exclude].flatten.include?(adapter_name)
       yield
     end
   end
-
-  #put adapter specific setup here
-  case adapter_name
-  when "PostgreSQL"
-    enable_extension!('uuid-ossp', ActiveRecord::Base.connection)
-    create_table :uuid_parents, id: :uuid, force: true do |t|
-      t.string :name
-    end
-    create_table :uuid_children, id: :uuid, force: true do |t|
-      t.string :name
-      t.uuid :uuid_parent_id
-    end
-  end
-
 
   # ------------------------------------------------------------------- #
   #                                                                     #
@@ -51,6 +36,7 @@ ActiveRecord::Schema.define do
 
   create_table :aircraft, force: true do |t|
     t.string :name
+    t.integer :wheels_count, default: 0, null: false
   end
 
   create_table :articles, force: true do |t|
@@ -114,6 +100,10 @@ ActiveRecord::Schema.define do
     t.column :status, :integer, default: 0
     t.column :read_status, :integer, default: 0
     t.column :nullable_status, :integer
+    t.column :language, :integer, default: 0
+    t.column :author_visibility, :integer, default: 0
+    t.column :illustrator_visibility, :integer, default: 0
+    t.column :font_size, :integer, default: 0
   end
 
   create_table :booleans, force: true do |t|
@@ -139,6 +129,8 @@ ActiveRecord::Schema.define do
     t.column :lock_version, :integer, null: false, default: 0
     t.timestamps null: false
   end
+
+  create_table :carriers, force: true
 
   create_table :categories, force: true do |t|
     t.string :name, null: false
@@ -246,6 +238,11 @@ ActiveRecord::Schema.define do
     t.string  :gps_location
   end
 
+  create_table :customer_carriers, force: true do |t|
+    t.references :customer
+    t.references :carrier
+  end
+
   create_table :dashboards, force: true, id: false do |t|
     t.string :dashboard_id
     t.string :name
@@ -278,6 +275,11 @@ ActiveRecord::Schema.define do
     t.integer :breeder_id
     t.integer :dog_lover_id
     t.string  :alias
+  end
+
+  create_table :doubloons, force: true do |t|
+    t.integer :pirate_id
+    t.integer :weight
   end
 
   create_table :edges, force: true, id: false do |t|
@@ -670,7 +672,10 @@ ActiveRecord::Schema.define do
   create_table :ships, force: true do |t|
     t.string :name
     t.integer :pirate_id
+    t.belongs_to :developer
     t.integer :update_only_pirate_id
+    # Conventionally named column for counter_cache
+    t.integer :treasures_count, default: 0
     t.datetime :created_at
     t.datetime :created_on
     t.datetime :updated_at
@@ -681,6 +686,15 @@ ActiveRecord::Schema.define do
     t.string :name
     t.integer :ship_id
     t.datetime :updated_at
+  end
+
+  create_table :prisoners, force: true do |t|
+    t.belongs_to :ship
+  end
+
+  create_table :shop_accounts, force: true do |t|
+    t.references :customer
+    t.references :customer_carrier
   end
 
   create_table :speedometers, force: true, id: false do |t|
@@ -872,6 +886,17 @@ ActiveRecord::Schema.define do
     t.string 'from'
   end
 
+  create_table :nodes, force: true do |t|
+    t.integer :tree_id
+    t.integer :parent_id
+    t.string :name
+    t.datetime :updated_at
+  end
+  create_table :trees, force: true do |t|
+    t.string :name
+    t.datetime :updated_at
+  end
+
   create_table :hotels, force: true do |t|
   end
   create_table :departments, force: true do |t|
@@ -918,6 +943,10 @@ ActiveRecord::Schema.define do
     t.string :token
     t.string :auth_token
   end
+
+  create_table :test_with_keyword_column_name, force: true do |t|
+    t.string :desc
+  end
 end
 
 Course.connection.create_table :courses, force: true do |t|
@@ -927,4 +956,13 @@ end
 
 College.connection.create_table :colleges, force: true do |t|
   t.column :name, :string, null: false
+end
+
+Professor.connection.create_table :professors, force: true do |t|
+  t.column :name, :string, null: false
+end
+
+Professor.connection.create_table :courses_professors, id: false, force: true do |t|
+  t.references :course
+  t.references :professor
 end

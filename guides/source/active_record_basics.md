@@ -74,8 +74,8 @@ By default, Active Record uses some naming conventions to find out how the
 mapping between models and database tables should be created. Rails will
 pluralize your class names to find the respective database table. So, for
 a class `Book`, you should have a database table called **books**. The Rails
-pluralization mechanisms are very powerful, being capable to pluralize (and
-singularize) both regular and irregular words. When using class names composed
+pluralization mechanisms are very powerful, being capable of pluralizing (and
+singularizing) both regular and irregular words. When using class names composed
 of two or more words, the model class name should follow the Ruby conventions,
 using the CamelCase form, while the table name must contain the words separated
 by underscores. Examples:
@@ -142,7 +142,7 @@ end
 This will create a `Product` model, mapped to a `products` table at the
 database. By doing this you'll also have the ability to map the columns of each
 row in that table with the attributes of the instances of your model. Suppose
-that the `products` table was created using an SQL sentence like:
+that the `products` table was created using an SQL statement like:
 
 ```sql
 CREATE TABLE products (
@@ -260,7 +260,7 @@ david = User.find_by(name: 'David')
 
 ```ruby
 # find all users named David who are Code Artists and sort by created_at in reverse chronological order
-users = User.where(name: 'David', occupation: 'Code Artist').order('created_at DESC')
+users = User.where(name: 'David', occupation: 'Code Artist').order(created_at: :desc)
 ```
 
 You can learn more about querying an Active Record model in the [Active Record

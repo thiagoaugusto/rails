@@ -80,8 +80,12 @@ module ActiveSupport
     #     save
     #   end
     def run_callbacks(kind, &block)
-      callbacks = send("_#{kind}_callbacks")
+      send "_run_#{kind}_callbacks", &block
+    end
 
+    private
+
+    def __run_callbacks__(callbacks, &block)
       if callbacks.empty?
         yield if block_given?
       else
@@ -90,8 +94,6 @@ module ActiveSupport
         runner.call(e).value
       end
     end
-
-    private
 
     # A hook invoked every time a before callback is halted.
     # This can be overridden in AS::Callback implementors in order
@@ -124,14 +126,10 @@ module ActiveSupport
         def self.build(callback_sequence, user_callback, user_conditions, chain_config, filter)
           halted_lambda = chain_config[:terminator]
 
-          if chain_config.key?(:terminator) && user_conditions.any?
+          if user_conditions.any?
             halting_and_conditional(callback_sequence, user_callback, user_conditions, halted_lambda, filter)
-          elsif chain_config.key? :terminator
-            halting(callback_sequence, user_callback, halted_lambda, filter)
-          elsif user_conditions.any?
-            conditional(callback_sequence, user_callback, user_conditions)
           else
-            simple callback_sequence, user_callback
+            halting(callback_sequence, user_callback, halted_lambda, filter)
           end
         end
 
@@ -173,42 +171,15 @@ module ActiveSupport
           end
         end
         private_class_method :halting
-
-        def self.conditional(callback_sequence, user_callback, user_conditions)
-          callback_sequence.before do |env|
-            target = env.target
-            value  = env.value
-
-            if user_conditions.all? { |c| c.call(target, value) }
-              user_callback.call target, value
-            end
-
-            env
-          end
-        end
-        private_class_method :conditional
-
-        def self.simple(callback_sequence, user_callback)
-          callback_sequence.before do |env|
-            user_callback.call env.target, env.value
-
-            env
-          end
-        end
-        private_class_method :simple
       end
 
       class After
         def self.build(callback_sequence, user_callback, user_conditions, chain_config)
           if chain_config[:skip_after_callbacks_if_terminated]
-            if chain_config.key?(:terminator) && user_conditions.any?
+            if user_conditions.any?
               halting_and_conditional(callback_sequence, user_callback, user_conditions)
-            elsif chain_config.key?(:terminator)
-              halting(callback_sequence, user_callback)
-            elsif user_conditions.any?
-              conditional callback_sequence, user_callback, user_conditions
             else
-              simple callback_sequence, user_callback
+              halting(callback_sequence, user_callback)
             end
           else
             if user_conditions.any?
@@ -271,14 +242,10 @@ module ActiveSupport
 
       class Around
         def self.build(callback_sequence, user_callback, user_conditions, chain_config)
-          if chain_config.key?(:terminator) && user_conditions.any?
+          if user_conditions.any?
             halting_and_conditional(callback_sequence, user_callback, user_conditions)
-          elsif chain_config.key? :terminator
-            halting(callback_sequence, user_callback)
-          elsif user_conditions.any?
-            conditional(callback_sequence, user_callback, user_conditions)
           else
-            simple(callback_sequence, user_callback)
+            halting(callback_sequence, user_callback)
           end
         end
 
@@ -316,33 +283,6 @@ module ActiveSupport
           end
         end
         private_class_method :halting
-
-        def self.conditional(callback_sequence, user_callback, user_conditions)
-          callback_sequence.around do |env, &run|
-            target = env.target
-            value  = env.value
-
-            if user_conditions.all? { |c| c.call(target, value) }
-              user_callback.call(target, value) {
-                run.call.value
-              }
-              env
-            else
-              run.call
-            end
-          end
-        end
-        private_class_method :conditional
-
-        def self.simple(callback_sequence, user_callback)
-          callback_sequence.around do |env, &run|
-            user_callback.call(env.target, env.value) {
-              run.call.value
-            }
-            env
-          end
-        end
-        private_class_method :simple
       end
     end
 
@@ -638,7 +578,7 @@ module ActiveSupport
       #   set_callback :save, :after,  :after_meth, if: :condition
       #   set_callback :save, :around, ->(r, block) { stuff; result = block.call; stuff }
       #
-      # The second arguments indicates whether the callback is to be run +:before+,
+      # The second argument indicates whether the callback is to be run +:before+,
       # +:after+, or +:around+ the event. If omitted, +:before+ is assumed. This
       # means the first example above can also be written as:
       #
@@ -739,10 +679,10 @@ module ActiveSupport
       #   callback chain, preventing following before and around callbacks from
       #   being called and the event from being triggered.
       #   This should be a lambda to be executed.
-      #   The current object and the return result of the callback will be called
-      #   with the lambda.
+      #   The current object and the result lambda of the callback will be provided
+      #   to the terminator lambda.
       #
-      #     define_callbacks :validate, terminator: ->(target, result) { result == false }
+      #     define_callbacks :validate, terminator: ->(target, result_lambda) { result_lambda.call == false }
       #
       #   In this example, if any before validate callbacks returns +false+,
       #   any successive before and around callback is not executed.
@@ -806,6 +746,12 @@ module ActiveSupport
         names.each do |name|
           class_attribute "_#{name}_callbacks"
           set_callbacks name, CallbackChain.new(name, options)
+
+          module_eval <<-RUBY, __FILE__, __LINE__ + 1
+            def _run_#{name}_callbacks(&block)
+              __run_callbacks__(_#{name}_callbacks, &block)
+            end
+          RUBY
         end
       end
 

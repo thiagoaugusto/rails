@@ -1,3 +1,110 @@
+*   Fix displaying mailer previews on non local requests when config
+    `action_mailer.show_previews` is set
+
+    *Wojciech Wnętrzak*
+
+*   `rails server` will now honour the `PORT` environment variable
+
+    *David Cornu*
+
+*   Plugins generated using `rails plugin new` are now generated with the
+    version number set to 0.1.0.
+
+    *Daniel Morris*
+
+*   `I18n.load_path` is now reloaded under development so there's no need to
+    restart the server to make new locale files available. Also, I18n will no
+    longer raise for deleted locale files.
+
+    *Kir Shatrov*
+
+*   Add `bin/update` script to update development environment automatically.
+
+    *Mehmet Emin İNAÇ*
+
+*   Fix STATS_DIRECTORIES already defined warning when running rake from within
+    the top level directory of an engine that has a test app.
+
+    Fixes #20510
+
+    *Ersin Akinci*
+
+*   Make enabling or disabling caching in development mode possible with
+    rake dev:cache.
+
+    Running rake dev:cache will create or remove tmp/caching-dev.txt. When this
+    file exists config.action_controller.perform_caching will be set to true in
+    config/environments/development.rb.
+
+    Additionally, a server can be started with either --dev-caching or
+    --no-dev-caching included to toggle caching on startup.
+
+    *Jussi Mertanen*, *Chuck Callebs*
+
+*   Add a `--api` option in order to generate plugins that can be added
+    inside an API application.
+
+    *Robin Dupret*
+
+*   Fix `NoMethodError` when generating a scaffold inside a full engine.
+
+    *Yuji Yaginuma*
+
+*   Adding support for passing a block to the `add_source` action of a custom generator
+
+    *Mike Dalton*, *Hirofumi Wakasugi*
+
+*   `assert_file` understands paths with special characters
+    (eg. `v0.1.4~alpha+nightly`).
+
+    *Diego Carrion*
+
+*   Remove ContentLength middleware from the defaults.  If you want it, just
+    add it as a middleware in your config.
+
+    *Egg McMuffin*
+
+*   Make it possible to customize the executable inside rerun snippets.
+
+    *Yves Senn*
+
+*   Add support for API only apps.
+    Middleware stack was slimmed down and it has only the needed
+    middleware for API apps & generators generates the right files,
+    folders and configurations.
+
+    *Santiago Pastorino & Jorge Bejar*
+
+*   Make generated scaffold functional tests work inside engines.
+
+    *Yuji Yaginuma*
+
+*   Generator a `.keep` file in the `tmp` folder by default as many scripts
+    assume the existence of this folder and most would fail if it is absent.
+
+    See #20299.
+
+    *Yoong Kang Lim*, *Sunny Juneja*
+
+*   `config.static_index` configures directory `index.html` filename
+
+    Set `config.static_index` to serve a static directory index file not named
+    `index`. E.g. to serve `main.html` instead of `index.html` for directory
+    requests, set `config.static_index` to `"main"`.
+
+    *Eliot Sykes*
+
+*   `bin/setup` uses built-in rake tasks (`log:clear`, `tmp:clear`).
+
+    *Mohnish Thallavajhula*
+
+*   Fix mailer previews with attachments by using the mail gem's own API to
+    locate the first part of the correct mime type.
+
+    Fixes #14435.
+
+    *Andrew White*
+
 *   Remove sqlite support from `rails dbconsole`.
 
     *Andrew White*
@@ -77,7 +184,7 @@
 
     *Andrew White*
 
-*   Don't remove all line endings from routes.rb when revoking scaffold.
+*   Don't remove all line endings from `config/routes.rb` when revoking scaffold.
 
     Fixes #15913.
 

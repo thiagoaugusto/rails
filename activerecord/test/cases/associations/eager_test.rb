@@ -108,53 +108,57 @@ class EagerAssociationTest < ActiveRecord::TestCase
   end
 
   def test_preloading_has_many_in_multiple_queries_with_more_ids_than_database_can_handle
-    Comment.connection.expects(:in_clause_length).at_least_once.returns(5)
-    posts = Post.all.merge!(:includes=>:comments).to_a
-    assert_equal 11, posts.size
+    assert_called(Comment.connection, :in_clause_length, returns: 5) do
+      posts = Post.all.merge!(:includes=>:comments).to_a
+      assert_equal 11, posts.size
+    end
   end
 
   def test_preloading_has_many_in_one_queries_when_database_has_no_limit_on_ids_it_can_handle
-    Comment.connection.expects(:in_clause_length).at_least_once.returns(nil)
-    posts = Post.all.merge!(:includes=>:comments).to_a
-    assert_equal 11, posts.size
+    assert_called(Comment.connection, :in_clause_length, returns: nil) do
+      posts = Post.all.merge!(:includes=>:comments).to_a
+      assert_equal 11, posts.size
+    end
   end
 
   def test_preloading_habtm_in_multiple_queries_with_more_ids_than_database_can_handle
-    Comment.connection.expects(:in_clause_length).at_least_once.returns(5)
-    posts = Post.all.merge!(:includes=>:categories).to_a
-    assert_equal 11, posts.size
+    assert_called(Comment.connection, :in_clause_length, times: 2, returns: 5) do
+      posts = Post.all.merge!(:includes=>:categories).to_a
+      assert_equal 11, posts.size
+    end
   end
 
   def test_preloading_habtm_in_one_queries_when_database_has_no_limit_on_ids_it_can_handle
-    Comment.connection.expects(:in_clause_length).at_least_once.returns(nil)
-    posts = Post.all.merge!(:includes=>:categories).to_a
-    assert_equal 11, posts.size
+    assert_called(Comment.connection, :in_clause_length, times: 2, returns: nil) do
+      posts = Post.all.merge!(:includes=>:categories).to_a
+      assert_equal 11, posts.size
+    end
   end
 
   def test_load_associated_records_in_one_query_when_adapter_has_no_limit
-    Comment.connection.expects(:in_clause_length).at_least_once.returns(nil)
-
-    post = posts(:welcome)
-    assert_queries(2) do
-      Post.includes(:comments).where(:id => post.id).to_a
+    assert_called(Comment.connection, :in_clause_length, returns: nil) do
+      post = posts(:welcome)
+      assert_queries(2) do
+        Post.includes(:comments).where(:id => post.id).to_a
+      end
     end
   end
 
   def test_load_associated_records_in_several_queries_when_many_ids_passed
-    Comment.connection.expects(:in_clause_length).at_least_once.returns(1)
-
-    post1, post2 = posts(:welcome), posts(:thinking)
-    assert_queries(3) do
-      Post.includes(:comments).where(:id => [post1.id, post2.id]).to_a
+    assert_called(Comment.connection, :in_clause_length, returns: 1) do
+      post1, post2 = posts(:welcome), posts(:thinking)
+      assert_queries(3) do
+        Post.includes(:comments).where(:id => [post1.id, post2.id]).to_a
+      end
     end
   end
 
   def test_load_associated_records_in_one_query_when_a_few_ids_passed
-    Comment.connection.expects(:in_clause_length).at_least_once.returns(3)
-
-    post = posts(:welcome)
-    assert_queries(2) do
-      Post.includes(:comments).where(:id => post.id).to_a
+    assert_called(Comment.connection, :in_clause_length, returns: 3) do
+      post = posts(:welcome)
+      assert_queries(2) do
+        Post.includes(:comments).where(:id => post.id).to_a
+      end
     end
   end
 
@@ -1167,7 +1171,7 @@ class EagerAssociationTest < ActiveRecord::TestCase
     assert_no_queries { assert client.accounts.empty? }
   end
 
-  def test_preloading_has_many_through_with_uniq
+  def test_preloading_has_many_through_with_distinct
     mary = Author.includes(:unique_categorized_posts).where(:id => authors(:mary).id).first
     assert_equal 1, mary.unique_categorized_posts.length
     assert_equal 1, mary.unique_categorized_post_ids.length
@@ -1324,6 +1328,14 @@ class EagerAssociationTest < ActiveRecord::TestCase
     end
     assert_match message, error.message
   end
+
+  test "preload with invalid argument" do
+    exception = assert_raises(ArgumentError) do
+      Author.preload(10).to_a
+    end
+    assert_equal('10 was not recognized for preload', exception.message)
+  end
+
 
   test "preloading readonly association" do
     # has-one

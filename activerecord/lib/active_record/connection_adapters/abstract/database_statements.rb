@@ -40,8 +40,9 @@ module ActiveRecord
 
       # Returns a single value from a record
       def select_value(arel, name = nil, binds = [])
-        if result = select_one(arel, name, binds)
-          result.values.first
+        arel, binds = binds_from_relation arel, binds
+        if result = select_rows(to_sql(arel, binds), name, binds).first
+          result.first
         end
       end
 
@@ -136,7 +137,7 @@ module ActiveRecord
       #
       # In order to get around this problem, #transaction will emulate the effect
       # of nested transactions, by using savepoints:
-      # http://dev.mysql.com/doc/refman/5.6/en/savepoint.html
+      # http://dev.mysql.com/doc/refman/5.7/en/savepoint.html
       # Savepoints are supported by MySQL and PostgreSQL. SQLite3 version >= '3.6.8'
       # supports savepoints.
       #
@@ -188,8 +189,8 @@ module ActiveRecord
       # You should consult the documentation for your database to understand the
       # semantics of these different levels:
       #
-      # * http://www.postgresql.org/docs/9.1/static/transaction-iso.html
-      # * https://dev.mysql.com/doc/refman/5.6/en/set-transaction.html
+      # * http://www.postgresql.org/docs/current/static/transaction-iso.html
+      # * https://dev.mysql.com/doc/refman/5.7/en/set-transaction.html
       #
       # An <tt>ActiveRecord::TransactionIsolationError</tt> will be raised if:
       #
@@ -288,8 +289,12 @@ module ActiveRecord
         columns = schema_cache.columns_hash(table_name)
 
         binds = fixture.map do |name, value|
-          type = lookup_cast_type_from_column(columns[name])
-          Relation::QueryAttribute.new(name, value, type)
+          if column = columns[name]
+            type = lookup_cast_type_from_column(column)
+            Relation::QueryAttribute.new(name, value, type)
+          else
+            raise Fixture::FixtureError, %(table "#{table_name}" has no column named "#{name}".)
+          end
         end
         key_list = fixture.keys.map { |name| quote_column_name(name) }
         value_list = prepare_binds_for_database(binds).map do |value|

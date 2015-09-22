@@ -1,3 +1,34 @@
+*   Validate multiple contexts on `valid?` and `invalid?` at once.
+
+    Example:
+
+        class Person
+          include ActiveModel::Validations
+
+          attr_reader :name, :title
+          validates_presence_of :name, on: :create
+          validates_presence_of :title, on: :update
+        end
+
+        person = Person.new
+        person.valid?([:create, :update])    # => false
+        person.errors.messages               # => {:name=>["can't be blank"], :title=>["can't be blank"]}
+
+    *Dmitry Polushkin*
+
+*   Add case_sensitive option for confirmation validator in models.
+
+    *Akshat Sharma*
+
+*   Ensure `method_missing` is called for methods passed to
+    `ActiveModel::Serialization#serializable_hash` that don't exist.
+
+    *Jay Elaraj*
+
+*   Remove `ActiveModel::Serializers::Xml` from core.
+
+    *Zachary Scott*
+
 *   Add `ActiveModel::Dirty#[attr_name]_previously_changed?` and
     `ActiveModel::Dirty#[attr_name]_previous_change` to improve access
     to recorded changes after the model has been saved.
@@ -18,7 +49,7 @@
     *Wojciech Wnętrzak*
 
 *   Deprecate `ActiveModel::Errors#get`, `ActiveModel::Errors#set` and
-    `ActiveModel::Errors#[]=` methods that have inconsistent behaviour.
+    `ActiveModel::Errors#[]=` methods that have inconsistent behavior.
 
     *Wojciech Wnętrzak*
 
